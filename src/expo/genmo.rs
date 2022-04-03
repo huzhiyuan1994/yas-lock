@@ -117,6 +117,8 @@ impl ArtifactSetKey {
             ArtifactSetKey::ShimenawasReminiscence => "reminiscence_of_shime",
             ArtifactSetKey::HuskOfOpulentDreams => "husk_of_opulent_dreams",
             ArtifactSetKey::OceanHuedClam => "divine_chorus",
+            ArtifactSetKey::VermillionHereafter => "vermillion_hereafter",
+            ArtifactSetKey::EchoesOfAnOffering => "echoes_of_an_offering",
 
             // Not supported by Mingyulab
             ArtifactSetKey::Adventurer => unreachable!(),

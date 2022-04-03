@@ -38,6 +38,7 @@ impl ArtifactStatKey {
 
 impl ArtifactSetKey {
     pub fn to_mona(&self) -> String {
+        let same = self.to_string();
         let temp = match self {
             ArtifactSetKey::ArchaicPetra => "archaicPetra",
             ArtifactSetKey::HeartOfDepth => "heartOfDepth",
@@ -76,6 +77,7 @@ impl ArtifactSetKey {
             ArtifactSetKey::ShimenawasReminiscence => "shimenawaReminiscence",
             ArtifactSetKey::HuskOfOpulentDreams => "huskOfOpulentDreams",
             ArtifactSetKey::OceanHuedClam => "oceanHuedClam",
+            _ => same.as_str(),
         };
         String::from(temp)
     }

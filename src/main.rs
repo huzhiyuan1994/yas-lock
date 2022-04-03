@@ -113,6 +113,12 @@ fn main() {
                 .max_values(5),
         )
         .arg(
+            Arg::with_name("min-level")
+                .long("min-level")
+                .takes_value(true)
+                .help("最小等级"),
+        )
+        .arg(
             Arg::with_name("max-wait-switch-artifact")
                 .long("max-wait-switch-artifact")
                 .takes_value(true)

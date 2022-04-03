@@ -23,6 +23,7 @@ pub struct YasScannerConfig {
     max_row: u32,
     capture_only: bool,
     min_star: u32,
+    min_level: u32,
     max_wait_switch_artifact: u32,
     scroll_stop: u32,
     number: u32,
@@ -45,6 +46,11 @@ impl YasScannerConfig {
             min_star: matches
                 .value_of("min-star")
                 .unwrap_or("4")
+                .parse::<u32>()
+                .unwrap(),
+            min_level: matches
+                .value_of("min-level")
+                .unwrap_or("0")
                 .parse::<u32>()
                 .unwrap(),
             max_wait_switch_artifact: matches
@@ -318,6 +324,8 @@ impl YasScanner {
 
     fn wait_until_switched(&mut self) -> bool {
         let now = SystemTime::now();
+        let mut consecutive_time = 0;
+        let mut diff_flag = false;
         while now.elapsed().unwrap().as_millis() < self.config.max_wait_switch_artifact as u128 {
             // let pool_start = SystemTime::now();
             let rect = PixelRect {
@@ -332,18 +340,31 @@ impl YasScanner {
             // println!("pool time: {}ms", pool_start.elapsed().unwrap().as_millis());
 
             if (pool - self.pool).abs() > 0.000001 {
-                // if pool != pool1 {
-                //     pool1 = pool;
-                // } else {
-                self.pool = pool;
-                // }
+                // info!("pool: {}", pool);
+                // let raw = RawCaptureImage {
+                //     data: im,
+                //     w: rect.width as u32,
+                //     h: rect.height as u32,
+                // };
+                // let raw = raw.to_raw_image();
+                // println!("{:?}", &raw.data[..10]);
+                // raw.save(&format!("captures/{}.png", rand::thread_rng().gen::<u32>()));
 
-                self.avg_switch_time = (self.avg_switch_time * self.scanned_count as f64
-                    + now.elapsed().unwrap().as_millis() as f64)
-                    / (self.scanned_count as f64 + 1.0);
-                self.scanned_count += 1;
-                // info!("avg switch time: {}ms", self.avg_switch_time);
-                return true;
+                self.pool = pool;
+                diff_flag = true;
+                consecutive_time = 0;
+            // info!("avg switch time: {}ms", self.avg_switch_time);
+            } else {
+                if diff_flag {
+                    consecutive_time += 1;
+                    if consecutive_time == 5 {
+                        self.avg_switch_time = (self.avg_switch_time * self.scanned_count as f64
+                            + now.elapsed().unwrap().as_millis() as f64)
+                            / (self.scanned_count as f64 + 1.0);
+                        self.scanned_count += 1;
+                        return true;
+                    }
+                }
             }
         }
 
@@ -496,7 +517,7 @@ impl YasScanner {
 
         let count = match self.get_art_count() {
             Ok(v) => v,
-            Err(_) => 1000,
+            Err(_) => 1500,
         };
 
         let total_row = (count + self.col - 1) / self.col;
@@ -522,6 +543,7 @@ impl YasScanner {
         // v bvvmnvbm
         let is_verbose = self.config.verbose;
         let is_dump_mode = self.config.dump_mode;
+        let min_level = self.config.min_level;
         let handle = thread::spawn(move || {
             let mut results: Vec<InternalArtifact> = Vec::new();
             let model = CRNNModel::new(
@@ -640,7 +662,14 @@ impl YasScanner {
             info!("error count: {}", error_count);
             info!("dup count: {}", dup_count);
 
-            results
+            if min_level > 0 {
+                results
+                    .into_iter()
+                    .filter(|result| result.level >= min_level)
+                    .collect::<Vec<_>>()
+            } else {
+                results
+            }
         });
 
         let mut scanned_row = 0_u32;
@@ -726,7 +755,7 @@ impl YasScanner {
 
         let count = match self.get_art_count() {
             Ok(v) => v,
-            Err(_) => 1000,
+            Err(_) => 1500,
         };
         if indices[indices.len() - 1] > count {
             error!("指标超出范围");

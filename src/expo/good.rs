@@ -36,46 +36,7 @@ impl ArtifactStatKey {
 
 impl ArtifactSetKey {
     pub fn to_good(&self) -> String {
-        let temp = match self {
-            ArtifactSetKey::ArchaicPetra => "ArchaicPetra",
-            ArtifactSetKey::HeartOfDepth => "HeartOfDepth",
-            ArtifactSetKey::BlizzardStrayer => "BlizzardStrayer",
-            ArtifactSetKey::RetracingBolide => "RetracingBolide",
-            ArtifactSetKey::NoblesseOblige => "NoblesseOblige",
-            ArtifactSetKey::GladiatorsFinale => "GladiatorsFinale",
-            ArtifactSetKey::MaidenBeloved => "MaidenBeloved",
-            ArtifactSetKey::ViridescentVenerer => "ViridescentVenerer",
-            ArtifactSetKey::Lavawalker => "Lavawalker",
-            ArtifactSetKey::CrimsonWitchOfFlames => "CrimsonWitchOfFlames",
-            ArtifactSetKey::Thundersoother => "Thundersoother",
-            ArtifactSetKey::ThunderingFury => "ThunderingFury",
-            ArtifactSetKey::BloodstainedChivalry => "BloodstainedChivalry",
-            ArtifactSetKey::WanderersTroupe => "WanderersTroupe",
-            ArtifactSetKey::Scholar => "Scholar",
-            ArtifactSetKey::Gambler => "Gambler",
-            ArtifactSetKey::TinyMiracle => "TinyMiracle",
-            ArtifactSetKey::MartialArtist => "MartialArtist",
-            ArtifactSetKey::BraveHeart => "BraveHeart",
-            ArtifactSetKey::ResolutionOfSojourner => "ResolutionOfSojourner",
-            ArtifactSetKey::DefenderWill => "DefenderWill",
-            ArtifactSetKey::Berserker => "Berserker",
-            ArtifactSetKey::Instructor => "Instructor",
-            ArtifactSetKey::Exile => "Exile",
-            ArtifactSetKey::Adventurer => "Adventurer",
-            ArtifactSetKey::LuckyDog => "LuckyDog",
-            ArtifactSetKey::TravelingDoctor => "TravelingDoctor",
-            ArtifactSetKey::PrayersForWisdom => "PrayersForWisdom",
-            ArtifactSetKey::PrayersToSpringtime => "PrayersToSpringtime",
-            ArtifactSetKey::PrayersForIllumination => "PrayersForIllumination",
-            ArtifactSetKey::PrayersForDestiny => "PrayersForDestiny",
-            ArtifactSetKey::PaleFlame => "PaleFlame",
-            ArtifactSetKey::TenacityOfTheMillelith => "TenacityOfTheMillelith",
-            ArtifactSetKey::EmblemOfSeveredFate => "EmblemOfSeveredFate",
-            ArtifactSetKey::ShimenawasReminiscence => "ShimenawasReminiscence",
-            ArtifactSetKey::HuskOfOpulentDreams => "HuskOfOpulentDreams",
-            ArtifactSetKey::OceanHuedClam => "OceanHuedClam",
-        };
-        String::from(temp)
+        return self.to_string();
     }
 }
 
@@ -94,53 +55,7 @@ impl ArtifactSlotKey {
 
 impl CharacterKey {
     pub fn to_good(&self) -> String {
-        let temp = match self {
-            CharacterKey::Albedo => "Albedo",
-            CharacterKey::Aloy => "Aloy",
-            CharacterKey::Amber => "Amber",
-            CharacterKey::AratakiItto => "AratakiItto",
-            CharacterKey::Barbara => "Barbara",
-            CharacterKey::Beidou => "Beidou",
-            CharacterKey::Bennett => "Bennett",
-            CharacterKey::Chongyun => "Chongyun",
-            CharacterKey::Diluc => "Diluc",
-            CharacterKey::Diona => "Diona",
-            CharacterKey::Eula => "Eula",
-            CharacterKey::Fischl => "Fischl",
-            CharacterKey::Ganyu => "Ganyu",
-            CharacterKey::Gorou => "Gorou",
-            CharacterKey::HuTao => "HuTao",
-            CharacterKey::Jean => "Jean",
-            CharacterKey::KaedeharaKazuha => "KaedeharaKazuha",
-            CharacterKey::Kaeya => "Kaeya",
-            CharacterKey::KamisatoAyaka => "KamisatoAyaka",
-            CharacterKey::Keqing => "Keqing",
-            CharacterKey::Klee => "Klee",
-            CharacterKey::KujouSara => "KujouSara",
-            CharacterKey::Lisa => "Lisa",
-            CharacterKey::Mona => "Mona",
-            CharacterKey::Ningguang => "Ningguang",
-            CharacterKey::Noelle => "Noelle",
-            CharacterKey::Qiqi => "Qiqi",
-            CharacterKey::RaidenShogun => "RaidenShogun",
-            CharacterKey::Razor => "Razor",
-            CharacterKey::Rosaria => "Rosaria",
-            CharacterKey::SangonomiyaKokomi => "SangonomiyaKokomi",
-            CharacterKey::Sayu => "Sayu",
-            CharacterKey::Sucrose => "Sucrose",
-            CharacterKey::Tartaglia => "Tartaglia",
-            CharacterKey::Thoma => "Thoma",
-            CharacterKey::Traveler => "Traveler",
-            CharacterKey::Venti => "Venti",
-            CharacterKey::Xiangling => "Xiangling",
-            CharacterKey::Xiao => "Xiao",
-            CharacterKey::Xingqiu => "Xingqiu",
-            CharacterKey::Xinyan => "Xinyan",
-            CharacterKey::Yanfei => "Yanfei",
-            CharacterKey::Yoimiya => "Yoimiya",
-            CharacterKey::Zhongli => "Zhongli",
-        };
-        String::from(temp)
+        return self.to_string();
     }
 }
 

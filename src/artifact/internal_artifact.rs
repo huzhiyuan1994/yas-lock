@@ -1,6 +1,7 @@
 use edit_distance;
 use regex::Regex;
 use std::hash::{Hash, Hasher};
+use strum_macros::Display;
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub enum ArtifactStatKey {
@@ -33,7 +34,7 @@ pub enum ArtifactSlotKey {
     Circlet,
 }
 
-#[derive(Debug, Hash, Clone, PartialEq, Eq)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq, Display)]
 pub enum ArtifactSetKey {
     ArchaicPetra,
     HeartOfDepth,
@@ -72,9 +73,11 @@ pub enum ArtifactSetKey {
     ShimenawasReminiscence,
     HuskOfOpulentDreams,
     OceanHuedClam,
+    VermillionHereafter,
+    EchoesOfAnOffering,
 }
 
-#[derive(Debug, Hash, Clone, PartialEq, Eq)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq, Display)]
 pub enum CharacterKey {
     Albedo,
     Aloy,
@@ -95,9 +98,11 @@ pub enum CharacterKey {
     KaedeharaKazuha,
     Kaeya,
     KamisatoAyaka,
+    KamisatoAyato,
     Keqing,
     Klee,
     KujouSara,
+    KukiShinobu,
     Lisa,
     Mona,
     Ningguang,
@@ -108,6 +113,7 @@ pub enum CharacterKey {
     Rosaria,
     SangonomiyaKokomi,
     Sayu,
+    Shenhe,
     Sucrose,
     Tartaglia,
     Thoma,
@@ -117,8 +123,11 @@ pub enum CharacterKey {
     Xiao,
     Xingqiu,
     Xinyan,
+    YaeMiko,
     Yanfei,
+    Yelan,
     Yoimiya,
+    YunJin,
     Zhongli,
 }
 
@@ -407,6 +416,16 @@ pub fn get_real_artifact_name_chs(raw: &str) -> Option<String> {
         "离别之贝",
         "真珠之笼",
         "海祇之冠",
+        "生灵之华",
+        "阳辔之遗",
+        "潜光片羽",
+        "结契之刻",
+        "虺雷之姿",
+        "魂香之花",
+        "祝祀之凭",
+        "垂玉之叶",
+        "涌泉之盏",
+        "浮溯之珏",
     ];
 
     let mut min_index = 0;
@@ -610,6 +629,12 @@ impl ArtifactSetKey {
             "离别之贝" => Some(ArtifactSetKey::OceanHuedClam),
             "真珠之笼" => Some(ArtifactSetKey::OceanHuedClam),
             "海祇之冠" => Some(ArtifactSetKey::OceanHuedClam),
+            "生灵之华" | "阳辔之遗" | "潜光片羽" | "结契之刻" | "虺雷之姿" => {
+                Some(ArtifactSetKey::VermillionHereafter)
+            }
+            "魂香之花" | "祝祀之凭" | "垂玉之叶" | "涌泉之盏" | "浮溯之珏" => {
+                Some(ArtifactSetKey::EchoesOfAnOffering)
+            }
             _ => None,
         }
     }
@@ -793,6 +818,16 @@ impl ArtifactSlotKey {
             "离别之贝" => Some(ArtifactSlotKey::Sands),
             "真珠之笼" => Some(ArtifactSlotKey::Goblet),
             "海祇之冠" => Some(ArtifactSlotKey::Circlet),
+            "生灵之华" => Some(ArtifactSlotKey::Flower),
+            "阳辔之遗" => Some(ArtifactSlotKey::Sands),
+            "潜光片羽" => Some(ArtifactSlotKey::Plume),
+            "结契之刻" => Some(ArtifactSlotKey::Goblet),
+            "虺雷之姿" => Some(ArtifactSlotKey::Circlet),
+            "魂香之花" => Some(ArtifactSlotKey::Flower),
+            "祝祀之凭" => Some(ArtifactSlotKey::Sands),
+            "垂玉之叶" => Some(ArtifactSlotKey::Plume),
+            "涌泉之盏" => Some(ArtifactSlotKey::Goblet),
+            "浮溯之珏" => Some(ArtifactSlotKey::Circlet),
             _ => None,
         }
     }
@@ -820,9 +855,11 @@ impl CharacterKey {
             "枫原万叶" => Some(CharacterKey::KaedeharaKazuha),
             "凯亚" => Some(CharacterKey::Kaeya),
             "神里绫华" => Some(CharacterKey::KamisatoAyaka),
+            "神里绫人" => Some(CharacterKey::KamisatoAyato),
             "刻晴" => Some(CharacterKey::Keqing),
             "可莉" => Some(CharacterKey::Klee),
-            "早柚" => Some(CharacterKey::KujouSara),
+            "九条裟罗" => Some(CharacterKey::KujouSara),
+            "久岐忍" => Some(CharacterKey::KukiShinobu),
             "丽莎" => Some(CharacterKey::Lisa),
             "莫娜" => Some(CharacterKey::Mona),
             "凝光" => Some(CharacterKey::Ningguang),
@@ -832,18 +869,22 @@ impl CharacterKey {
             "雷泽" => Some(CharacterKey::Razor),
             "罗莎莉亚" => Some(CharacterKey::Rosaria),
             "珊瑚宫心海" => Some(CharacterKey::SangonomiyaKokomi),
-            "九条裟罗" => Some(CharacterKey::Sayu),
+            "早柚" => Some(CharacterKey::Sayu),
+            "申鹤" => Some(CharacterKey::Shenhe),
             "砂糖" => Some(CharacterKey::Sucrose),
             "达达利亚" => Some(CharacterKey::Tartaglia),
             "托马" => Some(CharacterKey::Thoma),
             "旅行者" => Some(CharacterKey::Traveler),
-            "温蒂" => Some(CharacterKey::Venti),
+            "温迪" => Some(CharacterKey::Venti),
             "香菱" => Some(CharacterKey::Xiangling),
             "魈" => Some(CharacterKey::Xiao),
             "行秋" => Some(CharacterKey::Xingqiu),
             "辛焱" => Some(CharacterKey::Xinyan),
+            "八重神子" => Some(CharacterKey::YaeMiko),
             "烟绯" => Some(CharacterKey::Yanfei),
+            "夜兰" => Some(CharacterKey::Yelan),
             "宵宫" => Some(CharacterKey::Yoimiya),
+            "云堇" => Some(CharacterKey::YunJin),
             "钟离" => Some(CharacterKey::Zhongli),
             _ => None,
         }
