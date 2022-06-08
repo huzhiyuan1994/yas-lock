@@ -168,12 +168,11 @@ fn main() {
         .get_matches();
     let config = YasScannerConfig::from_match(&matches);
 
-    set_dpi_awareness();
+    let output_dir = Path::new(matches.value_of("output-dir").unwrap());
 
     let mut lock_mode = false;
     let mut indices: Vec<u32> = Vec::new();
 
-    let output_dir = Path::new(matches.value_of("output-dir").unwrap());
     let lock_filename = output_dir.join("lock.json");
     if lock_filename.exists() {
         print!("检测到lock文件，输入y开始加解锁，直接回车开始扫描：");
@@ -190,6 +189,8 @@ fn main() {
             lock_mode = true;
         }
     }
+
+    set_dpi_awareness();
 
     let hwnd = match utils::find_window(String::from("原神")) {
         Err(_s) => {
@@ -243,6 +244,8 @@ fn main() {
     info.top += offset_y;
 
     let mut scanner = YasScanner::new(info.clone(), config);
+
+    // scanner.test();
 
     if lock_mode {
         scanner.flip_lock(indices);

@@ -38,10 +38,20 @@ pub struct WindowInfo {
     pub star_x: f64,
     pub star_y: f64,
 
+    pub pool_pos: Rect,
+
     pub lock_x: f64,
     pub lock_y: f64,
 
-    pub pool_pos: Rect,
+    pub art_lock_x: f64,
+    pub art_lock_y: f64,
+
+    pub ruler_left: f64,
+    pub ruler_top: f64,
+    pub ruler_height: f64,
+
+    pub menu_x: f64,
+    pub menu_y: f64,
 }
 
 impl WindowInfo {
@@ -92,9 +102,16 @@ impl WindowInfo {
             flag_y: convert_y(self.flag_y) as u32,
             star_x: convert_x(self.star_x) as u32,
             star_y: convert_y(self.star_y) as u32,
+            pool_position: convert_rect(&self.pool_pos),
             lock_x: convert_x(self.lock_x) as u32,
             lock_y: convert_y(self.lock_y) as u32,
-            pool_position: convert_rect(&self.pool_pos),
+            art_lock_x: convert_x(self.art_lock_x) as u32,
+            art_lock_y: convert_y(self.art_lock_y) as u32,
+            ruler_left: convert_x(self.ruler_left) as u32,
+            ruler_top: convert_x(self.ruler_top) as u32,
+            ruler_height: convert_x(self.ruler_height) as u32,
+            menu_x: convert_x(self.menu_x) as u32,
+            menu_y: convert_y(self.menu_y) as u32,
         }
     }
 }
@@ -134,10 +151,20 @@ pub const WINDOW_16_9: WindowInfo = WindowInfo {
     star_x: 1469.4,
     star_y: 123.9,
 
+    pool_pos: Rect(118.2, 1144.7 + 15.0, 510.3, 1144.7),
+
     lock_x: 1450.0,
     lock_y: 357.0,
 
-    pool_pos: Rect(118.2, 1144.7 + 15.0, 510.3, 1144.7),
+    art_lock_x: 7.0,
+    art_lock_y: 15.0,
+
+    ruler_left: 150.0,
+    ruler_top: 120.0,
+    ruler_height: 80.0,
+
+    menu_x: 540.0,
+    menu_y: 50.0,
 };
 
 pub const WINDOW_8_5: WindowInfo = WindowInfo {
@@ -166,9 +193,16 @@ pub const WINDOW_8_5: WindowInfo = WindowInfo {
     flag_y: 82.1,
     star_x: 1321.3,
     star_y: 111.3,
+    pool_pos: Rect(103.6, 1025.8 + 15.0, 460.7, 1028.5),
     lock_x: 1305.0,
     lock_y: 322.0,
-    pool_pos: Rect(103.6, 1025.8 + 15.0, 460.7, 1028.5),
+    art_lock_x: 7.0,
+    art_lock_y: 13.0,
+    ruler_left: 133.0,
+    ruler_top: 105.0,
+    ruler_height: 70.0,
+    menu_x: 489.0,
+    menu_y: 47.0,
 };
 
 pub const WINDOW_4_3: WindowInfo = WindowInfo {
@@ -200,4 +234,11 @@ pub const WINDOW_4_3: WindowInfo = WindowInfo {
     lock_x: 1160.0,
     lock_y: 286.0,
     pool_pos: Rect(93.2, 912.7 + 15.0, 412.4, 912.7),
+    art_lock_x: 6.0,
+    art_lock_y: 12.0,
+    ruler_left: 118.0,
+    ruler_top: 94.0,
+    ruler_height: 62.0,
+    menu_x: 436.0,
+    menu_y: 42.0,
 };

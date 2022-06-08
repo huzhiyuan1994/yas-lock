@@ -43,10 +43,22 @@ pub struct ScanInfo {
     pub star_x: u32,
     pub star_y: u32,
 
+    pub pool_position: PixelRectBound,
+
+    /* yas-lock specific */
+    // a point inside lock icon
     pub lock_x: u32,
     pub lock_y: u32,
-
-    pub pool_position: PixelRectBound,
+    // a point inside lock icon, relative to artifact card
+    pub art_lock_x: u32,
+    pub art_lock_y: u32,
+    // a vertical line inside the first artifact
+    pub ruler_left: u32,
+    pub ruler_top: u32,
+    pub ruler_height: u32,
+    // a point inside the artifact icon in the top menu
+    pub menu_x: u32,
+    pub menu_y: u32,
 }
 
 impl ScanInfo {
