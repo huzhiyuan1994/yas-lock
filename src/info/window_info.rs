@@ -52,6 +52,13 @@ pub struct WindowInfo {
 
     pub menu_x: f64,
     pub menu_y: f64,
+
+    pub scrollbar_left: f64,
+    pub scrollbar_top: f64,
+    pub scrollbar_height: f64,
+
+    pub art_shift_x: f64,
+    pub art_shift_y: f64,
 }
 
 impl WindowInfo {
@@ -92,8 +99,8 @@ impl WindowInfo {
             art_gap_y: convert_y(self.art_gap_y) as u32,
             art_row: self.art_row as u32,
             art_col: self.art_col as u32,
-            left_margin: convert_x(self.left_margin) as u32,
-            top_margin: convert_y(self.top_margin) as u32,
+            left_margin: convert_x(self.left_margin),
+            top_margin: convert_y(self.top_margin),
             width: w as u32,
             height: h as u32,
             left,
@@ -105,13 +112,18 @@ impl WindowInfo {
             pool_position: convert_rect(&self.pool_pos),
             lock_x: convert_x(self.lock_x) as u32,
             lock_y: convert_y(self.lock_y) as u32,
-            art_lock_x: convert_x(self.art_lock_x) as u32,
-            art_lock_y: convert_y(self.art_lock_y) as u32,
+            art_lock_x: convert_x(self.art_lock_x),
+            art_lock_y: convert_y(self.art_lock_y),
             ruler_left: convert_x(self.ruler_left) as u32,
-            ruler_top: convert_x(self.ruler_top) as u32,
-            ruler_height: convert_x(self.ruler_height) as u32,
+            ruler_top: convert_y(self.ruler_top) as u32,
+            ruler_height: convert_y(self.ruler_height) as u32,
             menu_x: convert_x(self.menu_x) as u32,
             menu_y: convert_y(self.menu_y) as u32,
+            scrollbar_left: convert_x(self.scrollbar_left) as u32,
+            scrollbar_top: convert_y(self.scrollbar_top) as u32,
+            scrollbar_height: convert_y(self.scrollbar_height) as u32,
+            art_shift_x: convert_x(self.art_shift_x),
+            art_shift_y: convert_y(self.art_shift_y),
         }
     }
 }
@@ -142,8 +154,8 @@ pub const WINDOW_16_9: WindowInfo = WindowInfo {
     art_row: 5,
     art_col: 8,
 
-    left_margin: 99.0,
-    top_margin: 101.0,
+    left_margin: 98.0,
+    top_margin: 100.0,
 
     flag_x: 271.1,
     flag_y: 89.8,
@@ -156,15 +168,22 @@ pub const WINDOW_16_9: WindowInfo = WindowInfo {
     lock_x: 1450.0,
     lock_y: 357.0,
 
-    art_lock_x: 7.0,
-    art_lock_y: 15.0,
+    art_lock_x: 12.0,
+    art_lock_y: 14.0,
 
     ruler_left: 150.0,
-    ruler_top: 120.0,
-    ruler_height: 80.0,
+    ruler_top: 102.0,
+    ruler_height: 123.0,
 
     menu_x: 540.0,
     menu_y: 50.0,
+
+    scrollbar_left: 1074.0,
+    scrollbar_top: 108.0,
+    scrollbar_height: 668.0,
+
+    art_shift_x: 122.0,
+    art_shift_y: 146.0,
 };
 
 pub const WINDOW_8_5: WindowInfo = WindowInfo {
@@ -196,13 +215,18 @@ pub const WINDOW_8_5: WindowInfo = WindowInfo {
     pool_pos: Rect(103.6, 1025.8 + 15.0, 460.7, 1028.5),
     lock_x: 1305.0,
     lock_y: 322.0,
-    art_lock_x: 7.0,
-    art_lock_y: 13.0,
+    art_lock_x: 10.0,
+    art_lock_y: 12.0,
     ruler_left: 133.0,
-    ruler_top: 105.0,
-    ruler_height: 70.0,
+    ruler_top: 93.0,
+    ruler_height: 108.0,
     menu_x: 489.0,
     menu_y: 47.0,
+    scrollbar_left: 966.0,
+    scrollbar_top: 98.0,
+    scrollbar_height: 788.0 - 98.0,
+    art_shift_x: 109.8,
+    art_shift_y: 131.4,
 };
 
 pub const WINDOW_4_3: WindowInfo = WindowInfo {
@@ -234,11 +258,16 @@ pub const WINDOW_4_3: WindowInfo = WindowInfo {
     lock_x: 1160.0,
     lock_y: 286.0,
     pool_pos: Rect(93.2, 912.7 + 15.0, 412.4, 912.7),
-    art_lock_x: 6.0,
-    art_lock_y: 12.0,
+    art_lock_x: 9.0,
+    art_lock_y: 10.0,
     ruler_left: 118.0,
-    ruler_top: 94.0,
-    ruler_height: 62.0,
+    ruler_top: 83.0,
+    ruler_height: 96.0,
     menu_x: 436.0,
     menu_y: 42.0,
+    scrollbar_left: 859.0,
+    scrollbar_top: 93.0,
+    scrollbar_height: 858.0 - 93.0,
+    art_shift_x: 97.6,
+    art_shift_y: 116.8,
 };

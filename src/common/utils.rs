@@ -10,7 +10,7 @@ use std::{thread, time};
 use log::error;
 use winapi::shared::windef::{HWND, POINT as WinPoint, RECT as WinRect};
 use winapi::um::winuser::{
-    ClientToScreen, FindWindowW, GetAsyncKeyState, GetClientRect, VK_RBUTTON,
+    ClientToScreen, FindWindowW, GetAsyncKeyState, GetClientRect, VK_F12, VK_RBUTTON,
 };
 
 use crate::common::PixelRect;
@@ -117,6 +117,17 @@ pub fn is_admin() -> bool {
 pub fn is_rmb_down() -> bool {
     unsafe {
         let state = GetAsyncKeyState(VK_RBUTTON);
+        if state == 0 {
+            return false;
+        }
+
+        state & 1 > 0
+    }
+}
+
+pub fn is_f12_down() -> bool {
+    unsafe {
+        let state = GetAsyncKeyState(VK_F12);
         if state == 0 {
             return false;
         }

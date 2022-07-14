@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::fs;
 use std::fs::File;
 use std::io::stdin;
 use std::io::stdout;
@@ -22,6 +23,10 @@ use clap::{App, Arg};
 use env_logger::Builder;
 use log::{info, LevelFilter};
 use os_info;
+
+use chrono::Local;
+
+// use enigo::*;
 
 // fn open_local(path: String) -> RawImage {
 //     let img = image::open(path).unwrap();
@@ -70,6 +75,96 @@ fn read_lock_file<P: AsRef<Path>>(path: P) -> Result<Vec<u32>, Box<dyn Error>> {
 
     Ok(l)
 }
+
+/*
+fn main() {
+    let hwnd = match utils::find_window(String::from("原神")) {
+        Err(_s) => {
+            utils::error_and_quit("未找到原神窗口，请确认原神已经开启");
+        }
+        Ok(h) => h,
+    };
+
+    unsafe {
+        ShowWindow(hwnd, SW_RESTORE);
+    }
+    // utils::sleep(1000);
+    unsafe {
+        SetForegroundWindow(hwnd);
+    }
+    let mut enigo = Enigo::new();
+    let mut state = 0;
+    loop {
+        if state == 1 {
+            enigo.mouse_click(MouseButton::Left);
+            print!(".");
+            std::io::stdout().flush().unwrap();
+        }
+        if utils::is_f12_down() {
+            state = 1 - state;
+            if state == 0 {
+                println!("\n暂停中");
+            } else {
+                println!("点击中");
+            }
+        }
+        utils::sleep(200);
+    }
+}
+*/
+
+/*
+fn gcd(mut a: u32, mut b: u32) -> u32 {
+    let mut r;
+    while b > 0 {
+        r = a % b;
+        a = b;
+        b = r;
+    }
+    a
+}
+
+fn main() {
+    set_dpi_awareness();
+
+    let hwnd = match utils::find_window(String::from("原神")) {
+        Err(_s) => {
+            utils::error_and_quit("未找到原神窗口，请确认原神已经开启");
+        }
+        Ok(h) => h,
+    };
+
+    unsafe {
+        ShowWindow(hwnd, SW_RESTORE);
+    }
+    unsafe {
+        SetForegroundWindow(hwnd);
+    }
+
+    utils::sleep(1000);
+    let rect = utils::get_client_rect(hwnd).unwrap();
+
+    // rect.scale(1.25);
+    // info!("detected left: {}", rect.left);
+    // info!("detected top: {}", rect.top);
+    // info!("detected width: {}", rect.width);
+    // info!("detected height: {}", rect.height);
+    let g = gcd(rect.width as u32, rect.height as u32);
+
+    // let date = Local::now();
+    capture_absolute_image(&rect)
+        .unwrap()
+        // .save(format!("{}.png", date.format("%Y_%y_%d_%H_%M_%S")))
+        .save(format!(
+            "{}x{}_{}x{}.png",
+            rect.width as u32 / g,
+            rect.height as u32 / g,
+            rect.width,
+            rect.height
+        ))
+        .expect("fail to take screenshot");
+}
+*/
 
 fn main() {
     Builder::new().filter_level(LevelFilter::Info).init();
@@ -215,8 +310,22 @@ fn main() {
     // info!("detected top: {}", rect.top);
     // info!("detected width: {}", rect.width);
     // info!("detected height: {}", rect.height);
+    info!("分辨率: {}x{}", rect.width, rect.height);
 
-    // capture_absolute_image(&rect).unwrap().save("test.png");
+    if !Path::new("dumps").exists() {
+        fs::create_dir("dumps").expect("create dir error");
+    }
+    capture_absolute_image(&rect)
+        .unwrap()
+        .save(format!("dumps/{}x{}.png", rect.width, rect.height))
+        .expect("fail to take screenshot");
+    /*
+    let date = Local::now();
+    capture_absolute_image(&rect)
+        .unwrap()
+        .save(format!("{}.png", date.format("%y_%m_%d_%H_%M_%S")))
+        .expect("fail to take screenshot");
+    */
 
     let mut info: info::ScanInfo;
     if rect.height * 16 == rect.width * 9 {
@@ -246,6 +355,7 @@ fn main() {
     let mut scanner = YasScanner::new(info.clone(), config);
 
     // scanner.test();
+    // return;
 
     if lock_mode {
         scanner.flip_lock(indices);

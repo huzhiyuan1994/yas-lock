@@ -1625,8 +1625,9 @@ dependencies = [
 
 [[package]]
 name = "yas"
-version = "1.0.1"
+version = "1.0.4"
 dependencies = [
+ "chrono",
  "clap",
  "edit-distance",
  "enigo",

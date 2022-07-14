@@ -1,12 +1,15 @@
 use std::collections::HashSet;
 use std::convert::From;
 use std::fs;
+use std::io::Write;
+use std::path::Path;
 use std::sync::mpsc;
 use std::thread;
 use std::time::SystemTime;
 
 use clap::ArgMatches;
 use enigo::*;
+use image::ImageBuffer;
 use log::{error, info, warn};
 
 use crate::artifact::internal_artifact::{
@@ -73,32 +76,6 @@ impl YasScannerConfig {
             // offset_y: matches.value_of("offset-y").unwrap_or("0").parse::<i32>().unwrap(),
         }
     }
-}
-
-pub struct YasScanner {
-    model: CRNNModel,
-    enigo: Enigo,
-
-    info: ScanInfo,
-    config: YasScannerConfig,
-
-    row: u32,
-    col: u32,
-
-    pool: f64,
-
-    initial_color: Color,
-
-    // for scrolls
-    scrolled_rows: u32,
-    avg_scroll_one_row: f64,
-
-    avg_switch_time: f64,
-    scanned_count: u32,
-
-    pixel_per_scroll: u32,
-    art_count: u32,
-    offset_y: i32,
 }
 
 enum ScrollResult {
@@ -192,6 +169,32 @@ fn eq(x: u8, y: u8, threshold: u8) -> bool {
     }
 }
 
+pub struct YasScanner {
+    model: CRNNModel,
+    enigo: Enigo,
+
+    info: ScanInfo,
+    config: YasScannerConfig,
+
+    row: u32,
+    col: u32,
+
+    pool: f64,
+
+    initial_color: Color,
+
+    // for scrolls
+    scrolled_rows: u32,
+    avg_scroll_one_row: f64,
+
+    avg_switch_time: f64,
+    scanned_count: u32,
+    art_count: u32,
+
+    pixels_per_scroll: f64,
+    offset_y: f64,
+}
+
 impl YasScanner {
     pub fn new(info: ScanInfo, config: YasScannerConfig) -> YasScanner {
         let row = info.art_row;
@@ -216,10 +219,10 @@ impl YasScanner {
 
             avg_switch_time: 0.0,
             scanned_count: 0,
-
-            pixel_per_scroll: 0,
             art_count: 1500,
-            offset_y: 0,
+
+            pixels_per_scroll: 0.0,
+            offset_y: 0.0,
         }
     }
 }
@@ -228,12 +231,14 @@ impl YasScanner {
     fn move_to(&mut self, row: u32, col: u32) {
         let info = &self.info;
         let left = info.left
-            + (info.left_margin + (info.art_width + info.art_gap_x) * col + info.art_width / 2)
-                as i32;
+            + info.left_margin as i32
+            + info.art_width as i32 / 2
+            + (info.art_shift_x * col as f64) as i32;
         let top = info.top
-            + (info.top_margin + (info.art_height + info.art_gap_y) * row + info.art_height / 4)
-                as i32;
-        self.enigo.mouse_move_to(left as i32, top as i32);
+            + info.top_margin as i32
+            + info.art_height as i32 / 2
+            + (info.art_shift_y * row as f64) as i32;
+        self.enigo.mouse_move_to(left, top);
     }
 
     fn scroll(&mut self, offset: i32) {
@@ -265,12 +270,31 @@ impl YasScanner {
         self.initial_color = self.get_flag_color();
     }
 
+    fn get_color_from_window_pixels(&self, x: u32, y: u32, pixels: &Vec<u8>) -> Color {
+        let p = ((self.info.height - 1 - y) * self.info.width + x) as usize * 4;
+        Color(pixels[p + 2], pixels[p + 1], pixels[p + 0])
+    }
+
+    fn set_color_in_window_pixels(&self, x: u32, y: u32, pixels: &mut Vec<u8>, color: &Color) {
+        let p = ((self.info.height - 1 - y) * self.info.width + x) as usize * 4;
+        pixels[p + 0] = color.2;
+        pixels[p + 1] = color.1;
+        pixels[p + 2] = color.0;
+    }
+
+    fn save_window_pixels_as_img(&self, pixels: &Vec<u8>) -> image::RgbImage {
+        ImageBuffer::from_fn(self.info.width, self.info.height, move |x, y| {
+            let p = ((self.info.height - 1 - y) * self.info.width + x) as usize * 4;
+            image::Rgb([pixels[p + 2], pixels[p + 1], pixels[p + 0]])
+        })
+    }
+
     fn get_ruler(&self) -> Vec<u8> {
         let rect = PixelRect {
-            left: self.info.left as i32 + 150,
-            top: self.info.top as i32 + 120,
+            left: self.info.left + self.info.ruler_left as i32,
+            top: self.info.top + self.info.ruler_top as i32,
             width: 1,
-            height: 80,
+            height: self.info.ruler_height as i32,
         };
         capture::capture_absolute(&rect).unwrap()
     }
@@ -282,75 +306,81 @@ impl YasScanner {
         }
     }
 
-    fn check_at_top(&mut self) {
-        self.move_to(0, 1);
-        self.enigo.mouse_click(MouseButton::Left);
-        let ruler = self.get_ruler();
-        let pool = calc_pool(&ruler);
-        self.scroll(1);
-        let mut ruler_new = self.get_ruler();
-        let mut pool_new = calc_pool(&ruler_new);
-        utils::sleep(1000);
-        loop {
-            ruler_new = self.get_ruler();
-            let pool_newer = calc_pool(&ruler_new);
-            if (pool_newer - pool_new).abs() < 0.000001 {
-                break;
-            }
-            pool_new = pool_newer;
-            utils::sleep(500);
-        }
-        // println!("{} {}", pool, pool_new);
-        if (pool - calc_pool(&ruler)).abs() > 0.000001 {
-            utils::error_and_quit("请翻到圣遗物界面顶部");
-        }
-    }
-
     fn scroll_to_top(&mut self) {
-        self.move_to(0, 1);
-        let mut ruler = self.get_ruler();
-        'outer: loop {
-            self.scroll(100);
-            utils::sleep(2000);
-            let ruler_new = self.get_ruler();
-            for i in 0..ruler.len() {
-                if ruler[i] != ruler_new[i] {
-                    ruler = ruler_new;
-                    continue 'outer;
-                }
+        let rect = PixelRect {
+            left: self.info.left + self.info.scrollbar_left as i32,
+            top: self.info.top + self.info.scrollbar_top as i32,
+            width: 1,
+            height: self.info.scrollbar_height as i32,
+        };
+        let pixels = capture::capture_absolute(&rect).unwrap();
+        // println!("{:?}", pixels);
+        let mut offset = 0;
+        let mut color_max = 0_u32;
+        for i in 0..rect.height as usize {
+            let color = pixels[4 * i] as u32 + pixels[4 * i + 1] as u32 + pixels[4 * i + 2] as u32;
+            if color > color_max {
+                color_max = color;
+                offset = rect.height - i as i32;
             }
-            break;
+            // println!(
+            //     "{} {} {} {}",
+            //     pixels[i],
+            //     pixels[i + 1],
+            //     pixels[i + 2],
+            //     pixels[i + 3]
+            // );
         }
+        self.enigo.mouse_move_to(rect.left, rect.top + offset);
+        self.enigo.mouse_down(MouseButton::Left);
+        utils::sleep(500);
+        self.enigo.mouse_move_to(rect.left, self.info.top + 10);
+        utils::sleep(500);
+        self.enigo.mouse_up(MouseButton::Left);
     }
 
     fn get_scroll_speed(&mut self) {
-        //   4321
-        // 6543
+        if !Path::new("dumps").exists() {
+            fs::create_dir("dumps").expect("create dir error");
+        }
+        // move focus to the second artifact
+        self.move_to(0, 1);
+        self.enigo.mouse_click(MouseButton::Left);
+        utils::sleep(500);
+        // match ruler and ruler_shift to get scroll speed
         let ruler = self.get_ruler();
-        self.scroll(-1);
-        utils::sleep(400);
-        let ruler_new = self.get_ruler();
-        // println!("{:?}", ruler);
-        // println!("{:?}", ruler_new);
-        'outer: for i in (0..ruler.len()).step_by(4) {
-            if eq(ruler_new[i], ruler[0], 5) {
-                // println!("{}", i);
+        fs::write("dumps/scroll_0.txt", format!("{:?}", ruler))
+            .expect("fail to write scroll_0.txt");
+        // scroll until rulers are matched
+        // this is because some pixels are mixed after scrolling
+        'scroll: for n_scroll in 1..=5 {
+            self.scroll(-1);
+            utils::sleep(400);
+            let ruler_shift = self.get_ruler();
+            fs::write(
+                format!("dumps/scroll_{}.txt", n_scroll),
+                format!("{:?}", ruler_shift),
+            )
+            .expect("fail to write scroll_x.txt");
+            //   4321
+            // 6543
+            'match_: for i in (4..ruler.len()).step_by(4) {
                 for j in 0..(ruler.len() - i) {
-                    if !eq(ruler_new[i + j], ruler[j], 5) {
-                        // println!("fail at {}", j);
-                        continue 'outer;
+                    if !eq(ruler_shift[i + j], ruler[j], 5) {
+                        continue 'match_;
                     }
                 }
-                self.pixel_per_scroll = (i as u32) / 4;
-                break 'outer;
+                self.pixels_per_scroll = (i / 4) as f64 / (n_scroll as f64);
+                // undo scrolls
+                self.scroll(n_scroll);
+                utils::sleep(400);
+                break 'scroll;
             }
         }
-        if self.pixel_per_scroll == 0 {
+        if self.pixels_per_scroll < 1.0 {
             utils::error_and_quit("检测滚动速度失败");
         }
-        self.scroll(1);
-        utils::sleep(400);
-        info!("pixels per scroll: {}", self.pixel_per_scroll);
+        info!("pixels per scroll: {}", self.pixels_per_scroll);
     }
 
     fn get_art_count(&mut self) -> Result<u32, String> {
@@ -408,11 +438,11 @@ impl YasScanner {
     }
 
     fn scroll_rows(&mut self, count: u32) -> ScrollResult {
-        let total_pixels =
-            self.offset_y + (count * (self.info.art_height + self.info.art_gap_y)) as i32;
-        let total_scrolls = (total_pixels as f64 / self.pixel_per_scroll as f64).round() as i32;
-        self.offset_y = total_pixels - total_scrolls * self.pixel_per_scroll as i32;
-        self.scroll(-total_scrolls);
+        let total_pixels = self.offset_y + self.info.art_shift_y * count as f64;
+        let total_scrolls = (total_pixels / self.pixels_per_scroll).round();
+        self.offset_y = total_pixels - total_scrolls * self.pixels_per_scroll;
+        self.scroll(-total_scrolls as i32);
+        self.scrolled_rows += count;
         /*
         if self.pixel_per_scroll > 0 {
         } else {
@@ -490,7 +520,7 @@ impl YasScanner {
             } else {
                 if diff_flag {
                     consecutive_time += 1;
-                    if consecutive_time == 1 {
+                    if consecutive_time == 5 {
                         self.avg_switch_time = (self.avg_switch_time * self.scanned_count as f64
                             + now.elapsed().unwrap().as_millis() as f64)
                             / (self.scanned_count as f64 + 1.0);
@@ -572,22 +602,56 @@ impl YasScanner {
     }
 
     fn get_locks(&mut self, start_row: u32) -> Vec<bool> {
+        // move focus out of all artifacts
         self.enigo
             .mouse_move_to(self.info.left + 10, self.info.top + 10);
         self.enigo.mouse_click(MouseButton::Left);
         utils::sleep(100);
+        // capture game screen
+        let rect = PixelRect {
+            left: self.info.left,
+            top: self.info.top,
+            width: self.info.width as i32,
+            height: self.info.height as i32,
+        };
+        let mut pixels = capture::capture_absolute(&rect).unwrap();
         let mut locks: Vec<bool> = Vec::new();
         let info = &self.info;
         for row in start_row..self.row {
-            let y = info.top_margin + row * (info.art_height + info.art_gap_y) + info.art_lock_y;
-            let y = (y as i32 + self.offset_y) as u32;
+            let y =
+                (info.top_margin + self.offset_y + info.art_lock_y + info.art_shift_y * row as f64)
+                    .round() as u32;
             for col in 0..self.col {
-                let x =
-                    info.left_margin + col * (info.art_width + info.art_gap_x) + info.art_lock_x;
-                let color = self.get_color(x, y);
-                locks.push(Color::from(255, 138, 117).dis_2(&color) < 1);
+                let x = (info.left_margin + info.art_lock_x + info.art_shift_x * col as f64).round()
+                    as u32;
+                // 检测以(x, y)为中心的7x7方块内是否有锁的颜色
+                let mut locked = false;
+                'sq: for dx in 0..7 {
+                    for dy in 0..7 {
+                        let color =
+                            self.get_color_from_window_pixels((x + dx) - 3, (y + dy) - 3, &pixels);
+                        self.set_color_in_window_pixels(
+                            (x + dx) - 3,
+                            (y + dy) - 3,
+                            &mut pixels,
+                            &Color(255, 0, 0),
+                        );
+                        if Color::from(255, 138, 117).dis_2(&color) < 1 {
+                            locked = true;
+                            // break 'sq;
+                        }
+                    }
+                }
+                locks.push(locked);
             }
         }
+        // dump marked screenshot for debug
+        if !Path::new("dumps").exists() {
+            fs::create_dir("dumps").expect("create dir error");
+        }
+        self.save_window_pixels_as_img(&pixels)
+            .save(format!("dumps/lock_{}.png", self.scrolled_rows))
+            .expect("save image error");
         locks
     }
 
@@ -664,7 +728,7 @@ impl YasScanner {
 
     pub fn scan(&mut self) -> Vec<InternalArtifact> {
         self.check_menu();
-        self.check_at_top();
+        self.scroll_to_top();
         self.get_scroll_speed();
 
         if self.config.capture_only {
@@ -842,7 +906,6 @@ impl YasScanner {
         'outer: while scanned_count < count {
             let locks = self.get_locks(start_row);
             let mut locks_idx: usize = 0;
-            // println!("{:?}", locks);
             for row in start_row..self.row {
                 let c = if scanned_row == total_row - 1 {
                     last_row_col
@@ -913,7 +976,7 @@ impl YasScanner {
     }
     pub fn flip_lock(&mut self, indices: Vec<u32>) {
         self.check_menu();
-        self.check_at_top();
+        self.scroll_to_top();
         self.get_scroll_speed();
         let mut indices = indices;
         indices.sort();
@@ -978,42 +1041,15 @@ impl YasScanner {
             self.move_to(row - scanned_row + start_row, col);
         }
     }
-    pub fn capture_game(&self, filename: &str) {
-        let rect: PixelRect = PixelRect {
-            left: self.info.left as i32,
-            top: self.info.top as i32,
-            width: self.info.width as i32,
-            height: self.info.height as i32,
-        };
-        capture::capture_absolute_image(&rect)
-            .unwrap()
-            .save(filename)
-            .expect("error");
-    }
     pub fn test(&mut self) {
         self.check_menu();
-        self.check_at_top();
-        self.get_scroll_speed();
-        /*
-        self.move_to(0, 1);
-        self.enigo.mouse_click(MouseButton::Left);
-        let mut last_offset = 0;
-        for offset in [0, 1, 5, 10] {
-            println!("{} {}", offset, offset - last_offset);
-            self.enigo.mouse_scroll_y(last_offset - offset);
-            utils::sleep(400);
-            self.capture_game(&format!("origin_{:02}.png", offset));
-            last_offset = offset;
-            // print
-            let rect = PixelRect {
-                left: self.info.left as i32 + 150,
-                top: self.info.top as i32 + 120,
-                width: 1,
-                height: 80,
-            };
-            let u8_arr = capture::capture_absolute(&rect).unwrap();
-            println!("{:?}", u8_arr);
+        self.scroll_to_top();
+        // self.get_scroll_speed();
+        let locks = self.get_locks(0);
+        let mut b = true;
+        for l in locks {
+            b = b & l;
         }
-        */
+        // println!("{}", b);
     }
 }

@@ -29,8 +29,8 @@ pub struct ScanInfo {
     pub art_row: u32,
     pub art_col: u32,
 
-    pub left_margin: u32,
-    pub top_margin: u32,
+    pub left_margin: f64,
+    pub top_margin: f64,
 
     pub width: u32,
     pub height: u32,
@@ -50,8 +50,8 @@ pub struct ScanInfo {
     pub lock_x: u32,
     pub lock_y: u32,
     // a point inside lock icon, relative to artifact card
-    pub art_lock_x: u32,
-    pub art_lock_y: u32,
+    pub art_lock_x: f64,
+    pub art_lock_y: f64,
     // a vertical line inside the first artifact
     pub ruler_left: u32,
     pub ruler_top: u32,
@@ -59,6 +59,13 @@ pub struct ScanInfo {
     // a point inside the artifact icon in the top menu
     pub menu_x: u32,
     pub menu_y: u32,
+    // scrollbar
+    pub scrollbar_left: u32,
+    pub scrollbar_top: u32,
+    pub scrollbar_height: u32,
+    // artifact height + gap_y
+    pub art_shift_x: f64,
+    pub art_shift_y: f64,
 }
 
 impl ScanInfo {
