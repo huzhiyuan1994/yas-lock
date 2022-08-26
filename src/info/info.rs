@@ -1,4 +1,4 @@
-use crate::common::PixelRectBound;
+use crate::common::{PixelRect, PixelRectBound};
 use crate::info::window_info::{WINDOW_16_9, WINDOW_4_3, WINDOW_8_5};
 
 #[derive(Clone, Debug)]
@@ -79,5 +79,22 @@ impl ScanInfo {
 
     pub fn from_4_3(width: u32, height: u32, left: i32, top: i32) -> ScanInfo {
         WINDOW_4_3.to_scan_info(height as f64, width as f64, left, top)
+    }
+}
+
+impl ScanInfo {
+    pub fn from_rect(rect: &PixelRect) -> Result<ScanInfo, String> {
+        let info: ScanInfo;
+        if rect.height * 16 == rect.width * 9 {
+            info = ScanInfo::from_16_9(rect.width as u32, rect.height as u32, rect.left, rect.top);
+        } else if rect.height * 8 == rect.width * 5 {
+            info = ScanInfo::from_8_5(rect.width as u32, rect.height as u32, rect.left, rect.top);
+        } else if rect.height * 4 == rect.width * 3 {
+            info = ScanInfo::from_4_3(rect.width as u32, rect.height as u32, rect.left, rect.top);
+        } else {
+            return Err(String::from("不支持的分辨率"));
+        }
+
+        Ok(info)
     }
 }

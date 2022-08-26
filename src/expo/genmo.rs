@@ -64,6 +64,7 @@ impl ArtifactStatKey {
             ArtifactStatKey::AnemoBonus => "anemoDamage",
             ArtifactStatKey::GeoBonus => "geoDamage",
             ArtifactStatKey::PhysicalBonus => "physicalDamage",
+            ArtifactStatKey::DendroBonus => "dendroDamage",
         }
     }
 }
@@ -119,6 +120,8 @@ impl ArtifactSetKey {
             ArtifactSetKey::OceanHuedClam => "divine_chorus",
             ArtifactSetKey::VermillionHereafter => "vermillion_hereafter",
             ArtifactSetKey::EchoesOfAnOffering => "echoes_of_an_offering",
+            ArtifactSetKey::DeepwoodMemories => "deepwood_memories",
+            ArtifactSetKey::GildedDreams => "gilded_dreams",
 
             // Not supported by Mingyulab
             ArtifactSetKey::Adventurer => unreachable!(),

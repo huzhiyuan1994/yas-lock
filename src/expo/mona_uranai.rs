@@ -31,6 +31,7 @@ impl ArtifactStatKey {
             ArtifactStatKey::AnemoBonus => "windBonus",
             ArtifactStatKey::GeoBonus => "rockBonus",
             ArtifactStatKey::PhysicalBonus => "physicalBonus",
+            ArtifactStatKey::DendroBonus => "dendroBonus",
         };
         String::from(temp)
     }

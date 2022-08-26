@@ -2,19 +2,22 @@ use std::ffi::OsStr;
 use std::fs;
 use std::io::stdin;
 use std::iter::once;
+use std::mem::transmute;
 use std::os::windows::ffi::OsStrExt;
 use std::process;
 use std::ptr::null_mut;
 use std::{thread, time};
 
-use log::error;
+use log::{error, info, warn};
 use winapi::shared::windef::{HWND, POINT as WinPoint, RECT as WinRect};
 use winapi::um::winuser::{
-    ClientToScreen, FindWindowW, GetAsyncKeyState, GetClientRect, VK_F12, VK_RBUTTON,
+    ClientToScreen, FindWindowW, GetAsyncKeyState, GetClientRect, SetForegroundWindow,
+    SetProcessDPIAware, ShowWindow, SW_RESTORE, VK_F12, VK_RBUTTON,
 };
 
 use crate::common::PixelRect;
 use winapi::shared::minwindef::BOOL;
+use winapi::um::libloaderapi::{FreeLibrary, GetProcAddress, LoadLibraryA};
 use winapi::um::securitybaseapi::{AllocateAndInitializeSid, CheckTokenMembership, FreeSid};
 use winapi::um::winnt::{
     DOMAIN_ALIAS_RID_ADMINS, PSID, SECURITY_BUILTIN_DOMAIN_RID, SECURITY_NT_AUTHORITY,
@@ -26,8 +29,8 @@ pub fn encode_wide(s: String) -> Vec<u16> {
     wide
 }
 
-pub fn find_window(title: String) -> Result<HWND, String> {
-    let wide = encode_wide(title);
+pub fn find_window(title: &str) -> Result<HWND, String> {
+    let wide = encode_wide(String::from(title));
     let result: HWND = unsafe { FindWindowW(null_mut(), wide.as_ptr()) };
     if result.is_null() {
         Err(String::from("cannot find window"))
@@ -133,5 +136,62 @@ pub fn is_f12_down() -> bool {
         }
 
         state & 1 > 0
+    }
+}
+
+pub fn encode_lpcstr(s: &str) -> Vec<i8> {
+    let mut arr: Vec<i8> = s.bytes().map(|x| x as i8).collect();
+    arr.push(0);
+    arr
+}
+
+pub fn set_dpi_awareness() {
+    // let os = os_info::get();
+
+    let h_lib = unsafe {
+        // let names = ["SHCore.dll"]
+
+        LoadLibraryA(encode_lpcstr("Shcore.dll").as_ptr())
+    };
+    if h_lib.is_null() {
+        info!("`Shcore.dll` not found");
+        unsafe {
+            SetProcessDPIAware();
+        }
+    } else {
+        info!("`Shcore.dll` found");
+        unsafe {
+            let addr = GetProcAddress(h_lib, encode_lpcstr("SetProcessDpiAwareness").as_ptr());
+            if addr.is_null() {
+                warn!("cannot find process `SetProcessDpiAwareness`, but `Shcore.dll` exists");
+                SetProcessDPIAware();
+            } else {
+                // func(PROCESS_DPI_AWARENESS) -> HRESULT
+                let func = transmute::<*const (), fn(u32) -> i32>(addr as *const ());
+                // SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+                func(2);
+            }
+
+            FreeLibrary(h_lib);
+        }
+    }
+
+    // if os.version() >= &os_info::Version::from_string("8.1") {
+    //     info!("Windows version >= 8.1");
+    //     unsafe {
+    //         SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+    //     }
+    // } else {
+    //     info!("Windows version < 8.1");
+    //     unsafe {
+    //         SetProcessDPIAware();
+    //     }
+    // }
+}
+
+pub fn show_window_and_set_foreground(hwnd: HWND) {
+    unsafe {
+        ShowWindow(hwnd, SW_RESTORE);
+        SetForegroundWindow(hwnd);
     }
 }

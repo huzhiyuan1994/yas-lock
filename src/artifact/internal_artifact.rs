@@ -1,4 +1,5 @@
 use edit_distance;
+use log::error;
 use regex::Regex;
 use std::hash::{Hash, Hasher};
 use strum_macros::Display;
@@ -23,6 +24,7 @@ pub enum ArtifactStatKey {
     AnemoBonus,
     GeoBonus,
     PhysicalBonus,
+    DendroBonus,
 }
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
@@ -75,6 +77,8 @@ pub enum ArtifactSetKey {
     OceanHuedClam,
     VermillionHereafter,
     EchoesOfAnOffering,
+    DeepwoodMemories,
+    GildedDreams,
 }
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq, Display)]
@@ -86,9 +90,13 @@ pub enum CharacterKey {
     Barbara,
     Beidou,
     Bennett,
+    Candace,
     Chongyun,
+    Collei,
+    Cyno,
     Diluc,
     Diona,
+    Dori,
     Eula,
     Fischl,
     Ganyu,
@@ -105,6 +113,7 @@ pub enum CharacterKey {
     KukiShinobu,
     Lisa,
     Mona,
+    Nilou,
     Ningguang,
     Noelle,
     Qiqi,
@@ -117,6 +126,7 @@ pub enum CharacterKey {
     Sucrose,
     Tartaglia,
     Thoma,
+    Tighnari,
     Traveler,
     Venti,
     Xiangling,
@@ -210,6 +220,7 @@ impl ArtifactStatKey {
             "冰元素伤害加成" => Some(ArtifactStatKey::CryoBonus),
             "风元素伤害加成" => Some(ArtifactStatKey::AnemoBonus),
             "岩元素伤害加成" => Some(ArtifactStatKey::GeoBonus),
+            "草元素伤害加成" => Some(ArtifactStatKey::DendroBonus),
             "物理伤害加成" => Some(ArtifactStatKey::PhysicalBonus),
             _ => None,
         }
@@ -231,7 +242,13 @@ impl ArtifactStat {
         };
 
         let re = Regex::new("[%,]").unwrap();
-        let value = re.replace_all(temp[1], "").parse::<f64>().unwrap();
+        let mut value = match re.replace_all(temp[1], "").parse::<f64>() {
+            Ok(v) => v,
+            Err(_) => {
+                error!("stat `{}` parse error", s);
+                return None;
+            }
+        };
         // if is_percentage {
         //     value /= 100.0;
         // }
@@ -426,6 +443,16 @@ pub fn get_real_artifact_name_chs(raw: &str) -> Option<String> {
         "垂玉之叶",
         "涌泉之盏",
         "浮溯之珏",
+        "迷宫的游人",
+        "翠蔓的智者",
+        "贤智的定期",
+        "迷误者之灯",
+        "月桂的宝冠",
+        "梦中的铁花",
+        "裁断的翎羽",
+        "沉金的岁月",
+        "如蜜的终宴",
+        "沙王的投影",
     ];
 
     let mut min_index = 0;
@@ -635,6 +662,12 @@ impl ArtifactSetKey {
             "魂香之花" | "祝祀之凭" | "垂玉之叶" | "涌泉之盏" | "浮溯之珏" => {
                 Some(ArtifactSetKey::EchoesOfAnOffering)
             }
+            "迷宫的游人" | "翠蔓的智者" | "贤智的定期" | "迷误者之灯" | "月桂的宝冠" => {
+                Some(ArtifactSetKey::DeepwoodMemories)
+            }
+            "梦中的铁花" | "裁断的翎羽" | "沉金的岁月" | "如蜜的终宴" | "沙王的投影" => {
+                Some(ArtifactSetKey::GildedDreams)
+            }
             _ => None,
         }
     }
@@ -828,6 +861,16 @@ impl ArtifactSlotKey {
             "垂玉之叶" => Some(ArtifactSlotKey::Plume),
             "涌泉之盏" => Some(ArtifactSlotKey::Goblet),
             "浮溯之珏" => Some(ArtifactSlotKey::Circlet),
+            "迷宫的游人" => Some(ArtifactSlotKey::Flower),
+            "翠蔓的智者" => Some(ArtifactSlotKey::Plume),
+            "贤智的定期" => Some(ArtifactSlotKey::Sands),
+            "迷误者之灯" => Some(ArtifactSlotKey::Goblet),
+            "月桂的宝冠" => Some(ArtifactSlotKey::Circlet),
+            "梦中的铁花" => Some(ArtifactSlotKey::Flower),
+            "裁断的翎羽" => Some(ArtifactSlotKey::Plume),
+            "沉金的岁月" => Some(ArtifactSlotKey::Sands),
+            "如蜜的终宴" => Some(ArtifactSlotKey::Goblet),
+            "沙王的投影" => Some(ArtifactSlotKey::Circlet),
             _ => None,
         }
     }
@@ -843,9 +886,13 @@ impl CharacterKey {
             "芭芭拉" => Some(CharacterKey::Barbara),
             "北斗" => Some(CharacterKey::Beidou),
             "班尼特" => Some(CharacterKey::Bennett),
+            "坎蒂丝" => Some(CharacterKey::Candace),
             "重云" => Some(CharacterKey::Chongyun),
+            "柯莱" => Some(CharacterKey::Collei),
+            "赛诺" => Some(CharacterKey::Cyno),
             "迪卢克" => Some(CharacterKey::Diluc),
             "迪奥娜" => Some(CharacterKey::Diona),
+            "多莉" => Some(CharacterKey::Dori),
             "优菈" => Some(CharacterKey::Eula),
             "菲谢尔" => Some(CharacterKey::Fischl),
             "甘雨" => Some(CharacterKey::Ganyu),
@@ -862,6 +909,7 @@ impl CharacterKey {
             "久岐忍" => Some(CharacterKey::KukiShinobu),
             "丽莎" => Some(CharacterKey::Lisa),
             "莫娜" => Some(CharacterKey::Mona),
+            "妮露" => Some(CharacterKey::Nilou),
             "凝光" => Some(CharacterKey::Ningguang),
             "诺艾尔" => Some(CharacterKey::Noelle),
             "七七" => Some(CharacterKey::Qiqi),
@@ -874,6 +922,7 @@ impl CharacterKey {
             "砂糖" => Some(CharacterKey::Sucrose),
             "达达利亚" => Some(CharacterKey::Tartaglia),
             "托马" => Some(CharacterKey::Thoma),
+            "提纳里" => Some(CharacterKey::Tighnari),
             "旅行者" => Some(CharacterKey::Traveler),
             "温迪" => Some(CharacterKey::Venti),
             "香菱" => Some(CharacterKey::Xiangling),

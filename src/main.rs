@@ -16,15 +16,11 @@ use yas::expo::mona_uranai::MonaFormat;
 use yas::info::info;
 use yas::scanner::yas_scanner::{YasScanner, YasScannerConfig};
 
-use winapi::um::shellscalingapi::{SetProcessDpiAwareness, PROCESS_PER_MONITOR_DPI_AWARE};
-use winapi::um::winuser::{SetForegroundWindow, SetProcessDPIAware, ShowWindow, SW_RESTORE};
+use winapi::um::winuser::{SetForegroundWindow, ShowWindow, SW_RESTORE};
 
 use clap::{App, Arg};
 use env_logger::Builder;
 use log::{info, LevelFilter};
-use os_info;
-
-use chrono::Local;
 
 // use enigo::*;
 
@@ -35,25 +31,6 @@ use chrono::Local;
 
 //     raw_img
 // }
-
-fn set_dpi_awareness() {
-    let os = os_info::get();
-
-    // unsafe  {
-    //     SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
-    // }
-    if os.version() >= &os_info::Version::from_string("8.1") {
-        info!("Windows version >= 8.1");
-        unsafe {
-            SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
-        }
-    } else {
-        info!("Windows version < 8.1");
-        unsafe {
-            SetProcessDPIAware();
-        }
-    }
-}
 
 fn get_version() -> String {
     let s = include_str!("../Cargo.toml");
@@ -259,6 +236,14 @@ fn main() {
                 .takes_value(true)
                 .help("人为指定纵坐标偏移（截图有偏移时可用该选项校正）"),
         )
+        .arg(
+            Arg::with_name("speed")
+                .long("speed")
+                .takes_value(true)
+                .help("速度")
+                .min_values(1)
+                .max_values(5),
+        )
         // .arg(Arg::with_name("output-format").long("output-format").short("f").takes_value(true).help("输出格式。mona：莫纳占卜铺（默认）；mingyulab：原魔计算器。").possible_values(&["mona", "mingyulab"]).default_value("mona"))
         .get_matches();
     let config = YasScannerConfig::from_match(&matches);
@@ -285,9 +270,9 @@ fn main() {
         }
     }
 
-    set_dpi_awareness();
+    crate::utils::set_dpi_awareness();
 
-    let hwnd = match utils::find_window(String::from("原神")) {
+    let hwnd = match utils::find_window("原神") {
         Err(_s) => {
             utils::error_and_quit("未找到原神窗口，请确认原神已经开启");
         }
@@ -311,21 +296,6 @@ fn main() {
     // info!("detected width: {}", rect.width);
     // info!("detected height: {}", rect.height);
     info!("分辨率: {}x{}", rect.width, rect.height);
-
-    if !Path::new("dumps").exists() {
-        fs::create_dir("dumps").expect("create dir error");
-    }
-    capture_absolute_image(&rect)
-        .unwrap()
-        .save(format!("dumps/{}x{}.png", rect.width, rect.height))
-        .expect("fail to take screenshot");
-    /*
-    let date = Local::now();
-    capture_absolute_image(&rect)
-        .unwrap()
-        .save(format!("{}.png", date.format("%y_%m_%d_%H_%M_%S")))
-        .expect("fail to take screenshot");
-    */
 
     let mut info: info::ScanInfo;
     if rect.height * 16 == rect.width * 9 {

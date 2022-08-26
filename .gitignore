@@ -7,3 +7,4 @@ mona.json
 captures/
 
 dumps
+*.json

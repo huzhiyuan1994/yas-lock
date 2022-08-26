@@ -1,5 +1,6 @@
 use image::imageops::resize;
 use image::{GrayImage, ImageBuffer};
+use log::info;
 
 use crate::common::RawImage;
 
@@ -38,6 +39,11 @@ pub fn to_gray(raw: Vec<u8>, width: u32, height: u32) -> RawImage {
 pub fn normalize(im: &mut RawImage, auto_inverse: bool) {
     let width = im.w;
     let height = im.h;
+
+    if width == 0 || height == 0 {
+        return;
+    }
+
     let data = &mut im.data;
 
     let mut max: f32 = 0.0;
@@ -116,8 +122,16 @@ pub fn crop(im: &RawImage) -> RawImage {
         }
     }
 
-    let new_height = max_row - min_row + 1;
-    let new_width = max_col - min_col + 1;
+    let new_height = if max_row >= min_row {
+        max_row - min_row + 1
+    } else {
+        0
+    };
+    let new_width = if max_col >= min_col {
+        max_col - min_col + 1
+    } else {
+        0
+    };
 
     let mut ans: Vec<f32> = vec![0.0; (new_width * new_height) as usize];
 
@@ -193,9 +207,14 @@ pub fn resize_and_pad(im: &RawImage) -> RawImage {
 
 pub fn pre_process(im: RawImage) -> RawImage {
     let mut im = im;
+
     normalize(&mut im, true);
     let mut im = crop(&im);
     normalize(&mut im, false);
+
+    if im.w == 0 || im.h == 0 {
+        return im;
+    }
 
     let mut im = resize_and_pad(&im);
     for i in 0..im.w {
