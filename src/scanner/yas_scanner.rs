@@ -63,7 +63,7 @@ impl YasScannerConfig {
                 .unwrap(),
             scroll_stop: matches
                 .value_of("scroll-stop")
-                .unwrap_or("80")
+                .unwrap_or("100")
                 .parse::<u32>()
                 .unwrap(),
             number: matches
@@ -256,7 +256,7 @@ impl YasScanner {
                 self.enigo.mouse_scroll_y(1);
             }
         }
-        // utils::sleep(self.config.scroll_stop);
+        utils::sleep(self.config.scroll_stop);
     }
 
     fn get_color(&self, x: u32, y: u32) -> Color {
@@ -342,7 +342,7 @@ impl YasScanner {
         // this is because some pixels are mixed after scrolling
         'scroll: for n_scroll in 1..=5 {
             self.scroll(-1);
-            utils::sleep(400);
+            // utils::sleep(400);
             let ruler_shift = self.get_ruler();
             fs::write(
                 format!("dumps/scroll_{}.txt", n_scroll),
@@ -360,7 +360,7 @@ impl YasScanner {
                 self.pixels_per_scroll = (i / 4) as f64 / (n_scroll as f64);
                 // undo scrolls
                 self.scroll(n_scroll);
-                utils::sleep(400);
+                // utils::sleep(400);
                 break 'scroll;
             }
         }
@@ -1006,7 +1006,7 @@ impl YasScanner {
                 _ => (),
             }
 
-            utils::sleep(100);
+            // utils::sleep(100);
         }
 
         tx.send(None).unwrap();
@@ -1062,7 +1062,7 @@ impl YasScanner {
                 if utils::is_rmb_down() {
                     break;
                 }
-                utils::sleep(100);
+                // utils::sleep(100);
             }
             // 右键终止
             if utils::is_rmb_down() {

@@ -209,7 +209,7 @@ fn main() {
             Arg::with_name("scroll-stop")
                 .long("scroll-stop")
                 .takes_value(true)
-                .help("翻页时滚轮停顿时间（ms）（翻页不正确可以考虑加大该选项，默认为80）"),
+                .help("翻页时滚轮停顿时间（ms）（翻页不正确可以考虑加大该选项，默认为100）"),
         )
         .arg(
             Arg::with_name("number")
@@ -240,7 +240,7 @@ fn main() {
             Arg::with_name("speed")
                 .long("speed")
                 .takes_value(true)
-                .help("速度")
+                .help("速度（共1-5档，默认5，如提示大量重复尝试降低速度）")
                 .min_values(1)
                 .max_values(5),
         )
