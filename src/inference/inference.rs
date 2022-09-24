@@ -1,3 +1,4 @@
+use anyhow::Result;
 use serde_json::Value;
 use tract_onnx::prelude::*;
 
@@ -14,7 +15,7 @@ pub struct CRNNModel {
 }
 
 impl CRNNModel {
-    pub fn new(_name: String, _dict_name: String) -> CRNNModel {
+    pub fn new(_name: String, _dict_name: String) -> Result<CRNNModel> {
         // let model = tract_onnx::onnx()
         //     .model_for_path(String::from("models/") + name.as_str()).unwrap()
         //     .with_input_fact(0, InferenceFact::dt_shape(f32::datum_type(), tvec!(1, 1, 32, 384))).unwrap()
@@ -23,21 +24,17 @@ impl CRNNModel {
         let bytes = include_bytes!("../../models/model_training.onnx");
 
         let model = tract_onnx::onnx()
-            .model_for_read(&mut bytes.as_bytes())
-            .unwrap()
+            .model_for_read(&mut bytes.as_bytes())?
             .with_input_fact(
                 0,
                 InferenceFact::dt_shape(f32::datum_type(), tvec!(1, 1, 32, 384)),
-            )
-            .unwrap()
-            .into_optimized()
-            .unwrap()
-            .into_runnable()
-            .unwrap();
+            )?
+            .into_optimized()?
+            .into_runnable()?;
 
         // let content = utils::read_file_to_string(String::from("models/index_2_word.json"));
         let content = String::from(include_str!("../../models/index_2_word.json"));
-        let json: Value = serde_json::from_str(content.as_str()).unwrap();
+        let json: Value = serde_json::from_str(content.as_str())?;
 
         let mut index_2_word: Vec<String> = Vec::new();
         let mut i = 0;
@@ -46,19 +43,19 @@ impl CRNNModel {
                 Some(x) => x,
                 None => break,
             };
-            index_2_word.push(word.as_str().unwrap().to_string());
+            index_2_word.push(word.as_str().unwrap_or("").to_string());
             i += 1;
         }
 
-        CRNNModel {
+        Ok(CRNNModel {
             model,
             index_2_word,
 
             avg_inference_time: 0.0,
-        }
+        })
     }
 
-    pub fn inference_string(&self, img: &RawImage) -> String {
+    pub fn inference_string(&self, img: &RawImage) -> Result<String> {
         let tensor: Tensor =
             tract_ndarray::Array4::from_shape_fn((1, 1, 32, 384), |(_, _, y, x)| {
                 let index = img.w * y as u32 + x as u32;
@@ -66,8 +63,8 @@ impl CRNNModel {
             })
             .into();
 
-        let result = self.model.run(tvec!(tensor)).unwrap();
-        let arr = result[0].to_array_view::<f32>().unwrap();
+        let result = self.model.run(tvec!(tensor))?;
+        let arr = result[0].to_array_view::<f32>()?;
 
         let shape = arr.shape();
 
@@ -91,6 +88,6 @@ impl CRNNModel {
             last_word = word.clone();
         }
 
-        ans
+        Ok(ans)
     }
 }

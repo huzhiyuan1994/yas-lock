@@ -1,3 +1,4 @@
+use anyhow::Result;
 use std::convert::From;
 use std::fs::File;
 use std::io::prelude::*;
@@ -211,16 +212,10 @@ impl<'a> MonaFormat<'a> {
         }
     }
 
-    pub fn save(&self, path: String) {
-        let mut file = match File::create(&path) {
-            Err(why) => panic!("couldn't create {}: {}", path, why),
-            Ok(file) => file,
-        };
-        let s = serde_json::to_string(&self).unwrap();
-
-        match file.write_all(s.as_bytes()) {
-            Err(why) => panic!("couldn't write to {}: {}", path, why),
-            _ => {}
-        }
+    pub fn save(&self, path: String) -> Result<()> {
+        let mut file = File::create(&path)?;
+        let s = serde_json::to_string(&self)?;
+        file.write_all(s.as_bytes())?;
+        Ok(())
     }
 }

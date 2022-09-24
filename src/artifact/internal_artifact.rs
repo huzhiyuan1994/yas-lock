@@ -242,7 +242,7 @@ impl ArtifactStat {
         };
 
         let re = Regex::new("[%,]").unwrap();
-        let mut value = match re.replace_all(temp[1], "").parse::<f64>() {
+        let value = match re.replace_all(temp[1], "").parse::<f64>() {
             Ok(v) => v,
             Err(_) => {
                 error!("stat `{}` parse error", s);

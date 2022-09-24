@@ -1,5 +1,6 @@
 #[cfg(windows)]
 extern crate winapi;
+use anyhow::{anyhow, Result};
 use std::mem::size_of;
 use std::ptr::null_mut;
 
@@ -17,19 +18,19 @@ use crate::common::color::Color;
 use crate::common::{PixelRect, RawCaptureImage};
 
 #[cfg(windows)]
-unsafe fn unsafe_capture(rect: &PixelRect) -> Result<Vec<u8>, String> {
+unsafe fn unsafe_capture(rect: &PixelRect) -> Result<Vec<u8>> {
     // SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_SYSTEM_AWARE);
 
     let dc_window: HDC = GetDC(null_mut());
 
     let dc_mem: HDC = CreateCompatibleDC(dc_window);
     if dc_mem.is_null() {
-        return Err(String::from("CreateCompatibleDC Failed"));
+        return Err(anyhow!("CreateCompatibleDC Failed"));
     }
 
     let hbm: HBITMAP = CreateCompatibleBitmap(dc_window, rect.width, rect.height);
     if hbm.is_null() {
-        return Err(String::from("CreateCompatibleBitmap failed"));
+        return Err(anyhow!("CreateCompatibleBitmap failed"));
     }
 
     SelectObject(dc_mem, hbm as *mut c_void);
@@ -46,7 +47,7 @@ unsafe fn unsafe_capture(rect: &PixelRect) -> Result<Vec<u8>, String> {
         SRCCOPY,
     );
     if result == 0 {
-        return Err(String::from("BitBlt failed"));
+        return Err(anyhow!("BitBlt failed"));
     }
 
     let mut bitmap: BITMAP = BITMAP {
@@ -116,12 +117,12 @@ unsafe fn unsafe_capture(rect: &PixelRect) -> Result<Vec<u8>, String> {
 }
 
 #[cfg(windows)]
-pub fn capture_absolute(rect: &PixelRect) -> Result<Vec<u8>, String> {
+pub fn capture_absolute(rect: &PixelRect) -> Result<Vec<u8>> {
     unsafe { unsafe_capture(&rect) }
 }
 
 #[cfg(windows)]
-pub fn capture_absolute_raw_image(rect: &PixelRect) -> Result<RawCaptureImage, String> {
+pub fn capture_absolute_raw_image(rect: &PixelRect) -> Result<RawCaptureImage> {
     let pixels = capture_absolute(&rect)?;
     Ok(RawCaptureImage {
         data: pixels,
@@ -131,7 +132,7 @@ pub fn capture_absolute_raw_image(rect: &PixelRect) -> Result<RawCaptureImage, S
 }
 
 #[cfg(windows)]
-pub fn capture_absolute_image(rect: &PixelRect) -> Result<image::RgbImage, String> {
+pub fn capture_absolute_image(rect: &PixelRect) -> Result<image::RgbImage> {
     let raw: Vec<u8> = match capture_absolute(rect) {
         Err(s) => {
             return Err(s);
@@ -154,17 +155,16 @@ pub fn capture_absolute_image(rect: &PixelRect) -> Result<image::RgbImage, Strin
 }
 
 #[cfg(windows)]
-pub fn get_color(x: u32, y: u32) -> Color {
+pub fn get_color(x: u32, y: u32) -> Result<Color> {
     let im = capture_absolute(&PixelRect {
         left: x as i32,
         top: y as i32,
         width: 1,
         height: 1,
-    })
-    .unwrap();
+    })?;
 
     let b = im[0];
     let g = im[1];
     let r = im[2];
-    Color(r, g, b)
+    Ok(Color(r, g, b))
 }

@@ -1,6 +1,7 @@
 use crate::artifact::internal_artifact::{
     ArtifactSetKey, ArtifactSlotKey, ArtifactStat, ArtifactStatKey, InternalArtifact,
 };
+use anyhow::Result;
 use serde::ser::{Serialize, SerializeMap, Serializer};
 use std::fs::File;
 use std::io::prelude::*;
@@ -149,15 +150,10 @@ impl<'a> GenmoFormat<'a> {
         GenmoFormat { artifacts }
     }
 
-    pub fn save(&self, path: String) {
-        let mut file = match File::create(&path) {
-            Err(why) => panic!("couldn't create {}: {}", path, why),
-            Ok(file) => file,
-        };
-        let s = serde_json::to_string(&self.artifacts).unwrap();
-        match file.write_all(s.as_bytes()) {
-            Err(why) => panic!("couldn't write to {}: {}", path, why),
-            _ => {}
-        }
+    pub fn save(&self, path: String) -> Result<()> {
+        let mut file = File::create(&path)?;
+        let s = serde_json::to_string(&self.artifacts)?;
+        file.write_all(s.as_bytes())?;
+        Ok(())
     }
 }

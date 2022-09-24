@@ -1,5 +1,4 @@
-use std::error::Error;
-use std::fs;
+use anyhow::Result;
 use std::fs::File;
 use std::io::stdin;
 use std::io::stdout;
@@ -8,7 +7,6 @@ use std::io::Write;
 use std::path::Path;
 use std::time::SystemTime;
 
-use yas::capture::capture_absolute_image;
 use yas::common::utils;
 use yas::expo::genmo::GenmoFormat;
 use yas::expo::good::GoodFormat;
@@ -44,7 +42,7 @@ fn get_version() -> String {
     String::from("unknown_version")
 }
 
-fn read_lock_file<P: AsRef<Path>>(path: P) -> Result<Vec<u32>, Box<dyn Error>> {
+fn read_lock_file<P: AsRef<Path>>(path: P) -> Result<Vec<u32>> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
 
@@ -246,9 +244,11 @@ fn main() {
         )
         // .arg(Arg::with_name("output-format").long("output-format").short("f").takes_value(true).help("输出格式。mona：莫纳占卜铺（默认）；mingyulab：原魔计算器。").possible_values(&["mona", "mingyulab"]).default_value("mona"))
         .get_matches();
-    let config = YasScannerConfig::from_match(&matches);
 
-    let output_dir = Path::new(matches.value_of("output-dir").unwrap());
+    let config = YasScannerConfig::from_match(&matches)
+        .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()));
+
+    let output_dir = Path::new(matches.value_of("output-dir").unwrap_or("."));
 
     let mut lock_mode = false;
     let mut indices: Vec<u32> = Vec::new();
@@ -256,16 +256,14 @@ fn main() {
     let lock_filename = output_dir.join("lock.json");
     if lock_filename.exists() {
         print!("检测到lock文件，输入y开始加解锁，直接回车开始扫描：");
-        stdout().flush().unwrap();
+        stdout()
+            .flush()
+            .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()));
         let mut s: String = String::new();
         stdin().read_line(&mut s).expect("Readline error");
         if s.trim() == "y" {
-            indices = match read_lock_file(lock_filename) {
-                Ok(v) => v,
-                _ => {
-                    utils::error_and_quit("无法读取lock文件");
-                }
-            };
+            indices = read_lock_file(lock_filename)
+                .unwrap_or_else(|_| utils::error_and_quit("无法读取lock文件"));
             lock_mode = true;
         }
     }
@@ -288,7 +286,7 @@ fn main() {
     }
     utils::sleep(1000);
 
-    let rect = utils::get_client_rect(hwnd).unwrap();
+    let rect = utils::get_client_rect(hwnd).unwrap_or_else(|e| utils::error_and_quit(&e));
 
     // rect.scale(1.25);
     // info!("detected left: {}", rect.left);
@@ -313,40 +311,59 @@ fn main() {
         .value_of("offset-x")
         .unwrap_or("0")
         .parse::<i32>()
-        .unwrap();
+        .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()));
     let offset_y = matches
         .value_of("offset-y")
         .unwrap_or("0")
         .parse::<i32>()
-        .unwrap();
+        .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()));
     info.left += offset_x;
     info.top += offset_y;
 
-    let mut scanner = YasScanner::new(info.clone(), config);
+    let mut scanner = YasScanner::new(info.clone(), config)
+        .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()));
 
     // scanner.test();
     // return;
 
     if lock_mode {
-        scanner.flip_lock(indices);
+        scanner
+            .flip_lock(indices)
+            .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()));
     } else {
         let now = SystemTime::now();
-        let results = scanner.scan();
-        let t = now.elapsed().unwrap().as_secs_f64();
+        let results = match scanner.scan() {
+            Ok(v) => v,
+            Err(e) => utils::error_and_quit(&e.to_string()),
+        };
+        let t = now
+            .elapsed()
+            .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()))
+            .as_secs_f64();
         info!("time: {}s", t);
 
         // Mona
         let output_filename = output_dir.join("mona.json");
         let mona = MonaFormat::new(&results);
-        mona.save(String::from(output_filename.to_str().unwrap()));
+        mona.save(String::from(
+            output_filename.to_str().unwrap_or("mona.json"),
+        ))
+        .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()));
         // Genmo
         let output_filename = output_dir.join("genmo.json");
         let genmo = GenmoFormat::new(&results);
-        genmo.save(String::from(output_filename.to_str().unwrap()));
+        genmo
+            .save(String::from(
+                output_filename.to_str().unwrap_or("genmo.json"),
+            ))
+            .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()));
         // GOOD
         let output_filename = output_dir.join("good.json");
         let good = GoodFormat::new(&results);
-        good.save(String::from(output_filename.to_str().unwrap()));
+        good.save(String::from(
+            output_filename.to_str().unwrap_or("good.json"),
+        ))
+        .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()));
     }
 
     // let info = info;

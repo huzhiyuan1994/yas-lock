@@ -1,3 +1,4 @@
+use anyhow::Result;
 use std::ffi::OsStr;
 use std::fs;
 use std::io::stdin;
@@ -72,9 +73,9 @@ pub fn sleep(ms: u32) {
     thread::sleep(time);
 }
 
-pub fn read_file_to_string(path: String) -> String {
-    let content = fs::read_to_string(path).unwrap();
-    content
+pub fn read_file_to_string(path: String) -> Result<String> {
+    let content = fs::read_to_string(path)?;
+    Ok(content)
 }
 
 pub fn error_and_quit(msg: &str) -> ! {

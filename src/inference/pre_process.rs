@@ -1,6 +1,5 @@
 use image::imageops::resize;
 use image::{GrayImage, ImageBuffer};
-use log::info;
 
 use crate::common::RawImage;
 

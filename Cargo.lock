@@ -1627,6 +1627,7 @@ dependencies = [
 name = "yas"
 version = "1.0.4"
 dependencies = [
+ "anyhow",
  "clap",
  "edit-distance",
  "enigo",
