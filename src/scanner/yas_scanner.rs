@@ -270,7 +270,7 @@ impl YasScanner {
     fn check_menu(&self) -> Result<()> {
         let color = self.get_color(self.info.menu_x, self.info.menu_y)?;
         if Color::from(236, 229, 216).dis_2(&color) > 0 {
-            utils::error_and_quit("请打开背包圣遗物栏");
+            return Err(anyhow!("请打开背包圣遗物栏"));
         }
         Ok(())
     }
@@ -313,7 +313,7 @@ impl YasScanner {
     }
 
     fn get_scroll_speed(&mut self) -> Result<()> {
-        self.create_dumps_folder();
+        self.create_dumps_folder()?;
         // move focus to the first artifact
         self.move_to(0, 0);
         self.enigo.mouse_click(MouseButton::Left);
@@ -321,7 +321,7 @@ impl YasScanner {
         // match ruler and ruler_shift to get scroll speed
         let ruler = self.get_ruler()?;
         fs::write("dumps/scroll_0.txt", format!("{:?}", ruler))
-            .map_err(|_| anyhow!("fail to write scroll_x.txt"))?;
+            .map_err(|_| anyhow!("fail to write scroll_0.txt"))?;
         // scroll until rulers are matched
         // this is because some pixels are mixed after scrolling
         'scroll: for n_scroll in 1..=5 {
@@ -332,7 +332,7 @@ impl YasScanner {
                 format!("dumps/scroll_{}.txt", n_scroll),
                 format!("{:?}", ruler_shift),
             )
-            .map_err(|_| anyhow!("fail to write scroll_0.txt"))?;
+            .map_err(|_| anyhow!("fail to write scroll_x.txt"))?;
             //   4321
             // 6543
             'match_: for i in (4..ruler.len()).step_by(4) {
@@ -349,7 +349,7 @@ impl YasScanner {
             }
         }
         if self.pixels_per_scroll < 1.0 {
-            utils::error_and_quit("检测滚动速度失败");
+            return Err(anyhow!("检测滚动速度失败"));
         }
         info!("pixels per scroll: {}", self.pixels_per_scroll);
         Ok(())
@@ -556,10 +556,11 @@ impl YasScanner {
         Ok(star)
     }
 
-    fn create_dumps_folder(&self) {
+    fn create_dumps_folder(&self) -> Result<()> {
         if !Path::new("dumps").exists() {
-            fs::create_dir("dumps").expect("create dir error");
+            return fs::create_dir("dumps").map_err(|_| anyhow!("create dumps dir err"));
         }
+        Ok(())
     }
 
     // fn get_lock(&self, lock_last: bool) -> bool {
@@ -620,21 +621,17 @@ impl YasScanner {
             }
         }
         // dump marked screenshot for debug
-        self.create_dumps_folder();
-        shot.save(&format!("dumps/lock_{}.png", self.scrolled_rows))
-            .expect("save image error");
+        self.create_dumps_folder()?;
+        shot.save(&format!("dumps/lock_{}.png", self.scrolled_rows))?;
         Ok(locks)
     }
 
     fn start_capture_only(&mut self) -> Result<()> {
-        fs::create_dir("captures").expect("Create dir error");
+        fs::create_dir("captures")?;
         let info = &self.info.clone();
 
         let count = self.info.art_count_position.capture_relative(info)?;
-        count
-            .to_gray_image()
-            .save("captures/count.png")
-            .map_err(|_| anyhow!("Save png error"))?;
+        count.to_gray_image().save("captures/count.png")?;
 
         let convert_rect = |rect: &PixelRectBound| PixelRect {
             left: rect.left - info.panel_position.left,
@@ -645,56 +642,41 @@ impl YasScanner {
 
         let panel = self.capture_panel()?;
         let im_title = pre_process(panel.crop_to_raw_img(&convert_rect(&info.title_position)));
-        im_title
-            .to_gray_image()
-            .save("captures/title.png")
-            .expect("Err");
+        im_title.to_gray_image().save("captures/title.png")?;
         let im_main_stat_name =
             pre_process(panel.crop_to_raw_img(&convert_rect(&info.main_stat_name_position)));
         im_main_stat_name
             .to_gray_image()
-            .save("captures/main_stat_name.png")
-            .expect("Err");
+            .save("captures/main_stat_name.png")?;
         let im_main_stat_value =
             pre_process(panel.crop_to_raw_img(&convert_rect(&info.main_stat_value_position)));
         im_main_stat_value
             .to_gray_image()
-            .save("captures/main_stat_value.png")
-            .expect("Err");
+            .save("captures/main_stat_value.png")?;
         let im_sub_stat_1 =
             pre_process(panel.crop_to_raw_img(&convert_rect(&info.sub_stat1_position)));
         im_sub_stat_1
             .to_gray_image()
-            .save("captures/sub_stat_1.png")
-            .expect("Err");
+            .save("captures/sub_stat_1.png")?;
         let im_sub_stat_2 =
             pre_process(panel.crop_to_raw_img(&convert_rect(&info.sub_stat2_position)));
         im_sub_stat_2
             .to_gray_image()
-            .save("captures/sub_stat_2.png")
-            .expect("Err");
+            .save("captures/sub_stat_2.png")?;
         let im_sub_stat_3 =
             pre_process(panel.crop_to_raw_img(&convert_rect(&info.sub_stat3_position)));
         im_sub_stat_3
             .to_gray_image()
-            .save("captures/sub_stat_3.png")
-            .expect("Err");
+            .save("captures/sub_stat_3.png")?;
         let im_sub_stat_4 =
             pre_process(panel.crop_to_raw_img(&convert_rect(&info.sub_stat4_position)));
         im_sub_stat_4
             .to_gray_image()
-            .save("captures/sub_stat_4.png")
-            .expect("Err");
+            .save("captures/sub_stat_4.png")?;
         let im_level = pre_process(panel.crop_to_raw_img(&convert_rect(&info.level_position)));
-        im_level
-            .to_gray_image()
-            .save("captures/level.png")
-            .expect("Err");
+        im_level.to_gray_image().save("captures/level.png")?;
         let im_equip = pre_process(panel.crop_to_raw_img(&convert_rect(&info.equip_position)));
-        im_equip
-            .to_gray_image()
-            .save("captures/equip.png")
-            .expect("Err");
+        im_equip.to_gray_image().save("captures/equip.png")?;
         Ok(())
     }
 
@@ -733,7 +715,7 @@ impl YasScanner {
             alpha,
         );
         // save
-        self.create_dumps_folder();
+        self.create_dumps_folder()?;
         shot.save(&format!(
             "dumps/{}x{}.png",
             self.info.width, self.info.height
@@ -746,7 +728,7 @@ impl YasScanner {
         self.scroll_to_top()?;
         self.get_scroll_speed()?;
         self.screenshot_and_mark()?;
-        self.create_dumps_folder();
+        self.create_dumps_folder()?;
 
         if self.config.capture_only {
             self.start_capture_only()?;
@@ -782,13 +764,12 @@ impl YasScanner {
         let is_verbose = self.config.verbose;
         let is_dump_mode = self.config.dump_mode;
         let min_level = self.config.min_level;
-        let handle = thread::spawn(move || {
+        let handle = thread::spawn(move || -> Result<Vec<InternalArtifact>> {
             let mut results: Vec<InternalArtifact> = Vec::new();
             let model = CRNNModel::new(
                 String::from("model_training.onnx"),
                 String::from("index_2_word.json"),
-            )
-            .expect("Err");
+            )?;
             let mut error_count = 0;
             let mut dup_count = 0;
             let mut hash = HashSet::new();
@@ -797,7 +778,7 @@ impl YasScanner {
 
             let mut cnt = 0;
             if is_dump_mode {
-                fs::create_dir("dumps").expect("Err");
+                fs::create_dir("dumps")?;
             }
 
             let convert_rect = |rect: &PixelRectBound| PixelRect {
@@ -814,49 +795,47 @@ impl YasScanner {
                 };
                 // let now = SystemTime::now();
 
-                let model_inference = |pos: &PixelRectBound, name: &str, cnt: i32| {
-                    let raw_img = capture.crop_to_raw_img(&convert_rect(pos));
-                    if is_dump_mode {
-                        raw_img
-                            .grayscale_to_gray_image()
-                            .save(format!("dumps/{}_{}.png", name, cnt))
-                            .expect("Err");
-                    }
+                let model_inference =
+                    |pos: &PixelRectBound, name: &str, cnt: i32| -> Result<String> {
+                        let raw_img = capture.crop_to_raw_img(&convert_rect(pos));
+                        if is_dump_mode {
+                            raw_img
+                                .grayscale_to_gray_image()
+                                .save(format!("dumps/{}_{}.png", name, cnt))?;
+                        }
 
-                    let processed_img = pre_process(raw_img);
+                        let processed_img = pre_process(raw_img);
 
-                    if processed_img.w == 0 || processed_img.h == 0 {
-                        return String::from("");
-                    }
+                        if processed_img.w == 0 || processed_img.h == 0 {
+                            return Ok(String::from(""));
+                        }
 
-                    if is_dump_mode {
-                        processed_img
-                            .to_gray_image()
-                            .save(format!("dumps/p_{}_{}.png", name, cnt))
-                            .expect("Err");
-                    }
-                    let inference_result = model.inference_string(&processed_img).expect("Err");
-                    if is_dump_mode {
-                        fs::write(format!("dumps/{}_{}.txt", name, cnt), &inference_result)
-                            .expect("Err");
-                    }
+                        if is_dump_mode {
+                            processed_img
+                                .to_gray_image()
+                                .save(format!("dumps/p_{}_{}.png", name, cnt))?;
+                        }
+                        let inference_result = model.inference_string(&processed_img)?;
+                        if is_dump_mode {
+                            fs::write(format!("dumps/{}_{}.txt", name, cnt), &inference_result)?;
+                        }
 
-                    inference_result
-                };
+                        Ok(inference_result)
+                    };
 
-                let str_title = model_inference(&info.title_position, "title", cnt);
+                let str_title = model_inference(&info.title_position, "title", cnt)?;
                 let str_main_stat_name =
-                    model_inference(&info.main_stat_name_position, "main_stat_name", cnt);
+                    model_inference(&info.main_stat_name_position, "main_stat_name", cnt)?;
                 let str_main_stat_value =
-                    model_inference(&info.main_stat_value_position, "main_stat_value", cnt);
+                    model_inference(&info.main_stat_value_position, "main_stat_value", cnt)?;
 
-                let str_sub_stat_1 = model_inference(&info.sub_stat1_position, "sub_stat_1", cnt);
-                let str_sub_stat_2 = model_inference(&info.sub_stat2_position, "sub_stat_2", cnt);
-                let str_sub_stat_3 = model_inference(&info.sub_stat3_position, "sub_stat_3", cnt);
-                let str_sub_stat_4 = model_inference(&info.sub_stat4_position, "sub_stat_4", cnt);
+                let str_sub_stat_1 = model_inference(&info.sub_stat1_position, "sub_stat_1", cnt)?;
+                let str_sub_stat_2 = model_inference(&info.sub_stat2_position, "sub_stat_2", cnt)?;
+                let str_sub_stat_3 = model_inference(&info.sub_stat3_position, "sub_stat_3", cnt)?;
+                let str_sub_stat_4 = model_inference(&info.sub_stat4_position, "sub_stat_4", cnt)?;
 
-                let str_level = model_inference(&info.level_position, "level", cnt);
-                let str_equip = model_inference(&info.equip_position, "equip", cnt);
+                let str_level = model_inference(&info.level_position, "level", cnt)?;
+                let str_equip = model_inference(&info.equip_position, "equip", cnt)?;
 
                 cnt += 1;
 
@@ -906,14 +885,14 @@ impl YasScanner {
             info!("error count: {}", error_count);
             info!("dup count: {}", dup_count);
 
-            if min_level > 0 {
+            Ok(if min_level > 0 {
                 results
                     .into_iter()
                     .filter(|result| result.level >= min_level)
                     .collect::<Vec<_>>()
             } else {
                 results
-            }
+            })
         });
 
         let mut scanned_row = 0_u32;
@@ -985,8 +964,7 @@ impl YasScanner {
             start_row = self.row - scroll_row;
             match self.scroll_rows(scroll_row) {
                 ScrollResult::TLE => {
-                    error!("翻页出现问题");
-                    break 'outer;
+                    return Err(anyhow!("翻页出现问题"));
                 }
                 ScrollResult::Interrupt => break 'outer,
                 _ => (),
@@ -999,7 +977,7 @@ impl YasScanner {
 
         info!("扫描结束，等待识别线程结束，请勿关闭程序");
         let results: Vec<InternalArtifact> =
-            handle.join().map_err(|_| anyhow!("ocr thread join err"))?;
+            handle.join().map_err(|_| anyhow!("thread join err"))??;
         info!("count: {}", results.len());
         Ok(results)
     }

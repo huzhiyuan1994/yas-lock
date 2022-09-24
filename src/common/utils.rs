@@ -40,7 +40,7 @@ pub fn find_window(title: &str) -> Result<HWND, String> {
     }
 }
 
-unsafe fn get_client_rect_unsafe(hwnd: HWND) -> Result<PixelRect, String> {
+unsafe fn get_client_rect_unsafe(hwnd: HWND) -> Result<PixelRect> {
     let mut rect: WinRect = WinRect {
         left: 0,
         top: 0,
@@ -64,7 +64,7 @@ unsafe fn get_client_rect_unsafe(hwnd: HWND) -> Result<PixelRect, String> {
     })
 }
 
-pub fn get_client_rect(hwnd: HWND) -> Result<PixelRect, String> {
+pub fn get_client_rect(hwnd: HWND) -> Result<PixelRect> {
     unsafe { get_client_rect_unsafe(hwnd) }
 }
 

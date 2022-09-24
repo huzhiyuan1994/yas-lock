@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Context, Result};
 use std::fs::File;
 use std::io::stdin;
 use std::io::stdout;
@@ -14,11 +14,9 @@ use yas::expo::mona_uranai::MonaFormat;
 use yas::info::info;
 use yas::scanner::yas_scanner::{YasScanner, YasScannerConfig};
 
-use winapi::um::winuser::{SetForegroundWindow, ShowWindow, SW_RESTORE};
-
 use clap::{App, Arg};
 use env_logger::Builder;
-use log::{info, LevelFilter};
+use log::{error, info, LevelFilter};
 
 // use enigo::*;
 
@@ -141,11 +139,9 @@ fn main() {
 }
 */
 
-fn main() {
-    Builder::new().filter_level(LevelFilter::Info).init();
-
+fn start() -> Result<()> {
     if !utils::is_admin() {
-        utils::error_and_quit("请以管理员身份运行该程序")
+        return Err(anyhow!("请以管理员身份运行该程序"));
     }
 
     let version = get_version();
@@ -242,11 +238,9 @@ fn main() {
                 .min_values(1)
                 .max_values(5),
         )
-        // .arg(Arg::with_name("output-format").long("output-format").short("f").takes_value(true).help("输出格式。mona：莫纳占卜铺（默认）；mingyulab：原魔计算器。").possible_values(&["mona", "mingyulab"]).default_value("mona"))
         .get_matches();
 
-    let config = YasScannerConfig::from_match(&matches)
-        .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()));
+    let config = YasScannerConfig::from_match(&matches)?;
 
     let output_dir = Path::new(matches.value_of("output-dir").unwrap_or("."));
 
@@ -256,43 +250,25 @@ fn main() {
     let lock_filename = output_dir.join("lock.json");
     if lock_filename.exists() {
         print!("检测到lock文件，输入y开始加解锁，直接回车开始扫描：");
-        stdout()
-            .flush()
-            .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()));
+        stdout().flush()?;
         let mut s: String = String::new();
-        stdin().read_line(&mut s).expect("Readline error");
+        stdin().read_line(&mut s)?;
         if s.trim() == "y" {
-            indices = read_lock_file(lock_filename)
-                .unwrap_or_else(|_| utils::error_and_quit("无法读取lock文件"));
+            indices = read_lock_file(lock_filename)?;
             lock_mode = true;
         }
     }
 
-    crate::utils::set_dpi_awareness();
+    utils::set_dpi_awareness();
 
-    let hwnd = match utils::find_window("原神") {
-        Err(_s) => {
-            utils::error_and_quit("未找到原神窗口，请确认原神已经开启");
-        }
-        Ok(h) => h,
-    };
+    let hwnd =
+        utils::find_window("原神").map_err(|_| anyhow!("未找到原神窗口，请确认原神已经开启"))?;
 
-    unsafe {
-        ShowWindow(hwnd, SW_RESTORE);
-    }
-    // utils::sleep(1000);
-    unsafe {
-        SetForegroundWindow(hwnd);
-    }
+    utils::show_window_and_set_foreground(hwnd);
     utils::sleep(1000);
 
-    let rect = utils::get_client_rect(hwnd).unwrap_or_else(|e| utils::error_and_quit(&e));
+    let rect = utils::get_client_rect(hwnd)?;
 
-    // rect.scale(1.25);
-    // info!("detected left: {}", rect.left);
-    // info!("detected top: {}", rect.top);
-    // info!("detected width: {}", rect.width);
-    // info!("detected height: {}", rect.height);
     info!("分辨率: {}x{}", rect.width, rect.height);
 
     let mut info: info::ScanInfo;
@@ -304,74 +280,47 @@ fn main() {
     } else if rect.height * 4 == rect.width * 3 {
         info = info::ScanInfo::from_4_3(rect.width as u32, rect.height as u32, rect.left, rect.top);
     } else {
-        utils::error_and_quit("不支持的分辨率");
+        return Err(anyhow!("不支持的分辨率"));
     }
 
-    let offset_x = matches
-        .value_of("offset-x")
-        .unwrap_or("0")
-        .parse::<i32>()
-        .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()));
-    let offset_y = matches
-        .value_of("offset-y")
-        .unwrap_or("0")
-        .parse::<i32>()
-        .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()));
+    let offset_x = matches.value_of("offset-x").unwrap_or("0").parse::<i32>()?;
+    let offset_y = matches.value_of("offset-y").unwrap_or("0").parse::<i32>()?;
+
     info.left += offset_x;
     info.top += offset_y;
 
-    let mut scanner = YasScanner::new(info.clone(), config)
-        .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()));
-
-    // scanner.test();
-    // return;
+    let mut scanner = YasScanner::new(info.clone(), config)?;
 
     if lock_mode {
-        scanner
-            .flip_lock(indices)
-            .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()));
+        scanner.flip_lock(indices)?;
     } else {
         let now = SystemTime::now();
-        let results = match scanner.scan() {
-            Ok(v) => v,
-            Err(e) => utils::error_and_quit(&e.to_string()),
-        };
-        let t = now
-            .elapsed()
-            .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()))
-            .as_secs_f64();
+        let results = scanner.scan()?;
+        let t = now.elapsed()?.as_secs_f64();
         info!("time: {}s", t);
 
         // Mona
         let output_filename = output_dir.join("mona.json");
         let mona = MonaFormat::new(&results);
-        mona.save(String::from(
-            output_filename.to_str().unwrap_or("mona.json"),
-        ))
-        .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()));
+        mona.save(String::from(output_filename.to_str().context("Err")?))?;
         // Genmo
         let output_filename = output_dir.join("genmo.json");
         let genmo = GenmoFormat::new(&results);
-        genmo
-            .save(String::from(
-                output_filename.to_str().unwrap_or("genmo.json"),
-            ))
-            .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()));
+        genmo.save(String::from(output_filename.to_str().context("Err")?))?;
         // GOOD
         let output_filename = output_dir.join("good.json");
         let good = GoodFormat::new(&results);
-        good.save(String::from(
-            output_filename.to_str().unwrap_or("good.json"),
-        ))
-        .unwrap_or_else(|e| utils::error_and_quit(&e.to_string()));
+        good.save(String::from(output_filename.to_str().context("Err")?))?;
     }
 
-    // let info = info;
-    // let img = info.art_count_position.capture_relative(&info).unwrap();
+    Ok(())
+}
 
-    // let mut inference = CRNNModel::new(String::from("model_training.onnx"), String::from("index_2_word.json"));
-    // let s = inference.inference_string(&img);
-    // println!("{}", s);
+fn main() {
+    Builder::new().filter_level(LevelFilter::Info).init();
+
+    start().unwrap_or_else(|e| error!("{}", e.to_string()));
+
     info!("按Enter退出");
     let mut s = String::new();
     stdin().read_line(&mut s).expect("Readline error");
