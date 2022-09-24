@@ -954,9 +954,9 @@ impl YasScanner {
 
                     let capture = self.capture_panel()?;
 
-                    capture
-                        .save(&format!("dumps/art_{}.png", scanned_count + 1))
-                        .expect("save image error");
+                    // capture
+                    //     .save(&format!("dumps/art_{}.png", scanned_count + 1))
+                    //     .expect("save image error");
 
                     let star = self.get_star()?;
                     if star < self.config.min_star {
