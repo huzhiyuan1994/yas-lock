@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 use std::sync::mpsc;
 use std::thread;
-use std::time::SystemTime;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::ArgMatches;
 use enigo::*;
@@ -14,7 +14,7 @@ use log::{error, info, warn};
 use crate::artifact::internal_artifact::{
     ArtifactSetKey, ArtifactSlotKey, ArtifactStat, CharacterKey, InternalArtifact,
 };
-use crate::capture;
+use crate::capture::{self, capture_absolute_raw_image};
 use crate::common::color::Color;
 use crate::common::{utils, PixelRect, PixelRectBound, RawCaptureImage};
 use crate::inference::inference::CRNNModel;
@@ -74,7 +74,7 @@ impl YasScannerConfig {
             verbose: matches.is_present("verbose"),
             speed: matches
                 .value_of("speed")
-                .unwrap_or("4")
+                .unwrap_or("5")
                 .parse::<u32>()
                 .unwrap(),
             // offset_x: matches.value_of("offset-x").unwrap_or("0").parse::<i32>().unwrap(),
@@ -275,49 +275,6 @@ impl YasScanner {
         self.initial_color = self.get_flag_color();
     }
 
-    fn get_color_from_window_pixels(&self, x: u32, y: u32, pixels: &Vec<u8>) -> Color {
-        let p = ((self.info.height - 1 - y) * self.info.width + x) as usize * 4;
-        Color(pixels[p + 2], pixels[p + 1], pixels[p + 0])
-    }
-
-    fn set_color_in_window_pixels(&self, x: u32, y: u32, pixels: &mut Vec<u8>, color: &Color) {
-        let p = ((self.info.height - 1 - y) * self.info.width + x) as usize * 4;
-        pixels[p + 0] = color.2;
-        pixels[p + 1] = color.1;
-        pixels[p + 2] = color.0;
-    }
-
-    fn mark_in_window_pixels(
-        &self,
-        rect: &PixelRectBound,
-        pixels: &mut Vec<u8>,
-        color: &Color,
-        alpha: f64,
-    ) {
-        let width = (rect.right - rect.left + 1) as usize;
-        let height = (rect.bottom - rect.top + 1) as usize;
-        for i in 0..width {
-            for j in 0..height {
-                let x = rect.left as u32 + i as u32;
-                let y = rect.top as u32 + j as u32;
-                let p = ((self.info.height - 1 - y) * self.info.width + x) as usize * 4;
-                pixels[p + 0] =
-                    (pixels[p + 0] as f64 * (1.0 - alpha) + color.2 as f64 * alpha) as u8;
-                pixels[p + 1] =
-                    (pixels[p + 1] as f64 * (1.0 - alpha) + color.1 as f64 * alpha) as u8;
-                pixels[p + 2] =
-                    (pixels[p + 2] as f64 * (1.0 - alpha) + color.0 as f64 * alpha) as u8;
-            }
-        }
-    }
-
-    fn save_window_pixels_as_img(&self, pixels: &Vec<u8>) -> image::RgbImage {
-        ImageBuffer::from_fn(self.info.width, self.info.height, move |x, y| {
-            let p = ((self.info.height - 1 - y) * self.info.width + x) as usize * 4;
-            image::Rgb([pixels[p + 2], pixels[p + 1], pixels[p + 0]])
-        })
-    }
-
     fn get_ruler(&self) -> Vec<u8> {
         let rect = PixelRect {
             left: self.info.left + self.info.ruler_left as i32,
@@ -372,11 +329,9 @@ impl YasScanner {
     }
 
     fn get_scroll_speed(&mut self) {
-        if !Path::new("dumps").exists() {
-            fs::create_dir("dumps").expect("create dir error");
-        }
-        // move focus to the second artifact
-        self.move_to(0, 1);
+        self.create_dumps_folder();
+        // move focus to the first artifact
+        self.move_to(0, 0);
         self.enigo.mouse_click(MouseButton::Left);
         utils::sleep(500);
         // match ruler and ruler_shift to get scroll speed
@@ -541,9 +496,12 @@ impl YasScanner {
                 //     w: rect.width as u32,
                 //     h: rect.height as u32,
                 // };
-                // let raw = raw.to_raw_image();
                 // println!("{:?}", &raw.data[..10]);
-                // raw.save(&format!("captures/{}.png", rand::thread_rng().gen::<u32>()));
+                // raw.save(&format!(
+                //     "dumps/pool_{}.png",
+                //     now.duration_since(UNIX_EPOCH).unwrap().as_millis()
+                // ))
+                // .expect("save image error");
 
                 self.pool = pool;
                 diff_flag = true;
@@ -551,6 +509,7 @@ impl YasScanner {
             // info!("avg switch time: {}ms", self.avg_switch_time);
             } else {
                 if diff_flag {
+                    // info!("switched");
                     consecutive_time += 1;
                     if consecutive_time + self.config.speed >= 6 {
                         self.avg_switch_time = (self.avg_switch_time * self.scanned_count as f64
@@ -559,6 +518,8 @@ impl YasScanner {
                         self.scanned_count += 1;
                         return true;
                     }
+                    // } else {
+                    //     info!("pool: same");
                 }
             }
         }
@@ -575,13 +536,9 @@ impl YasScanner {
             width: w,
             height: h,
         };
-        let u8_arr = capture::capture_absolute(&rect)?;
+        let shot = capture::capture_absolute_raw_image(&rect)?;
         // info!("capture time: {}ms", now.elapsed().unwrap().as_millis());
-        Ok(RawCaptureImage {
-            data: u8_arr,
-            w: w as u32,
-            h: h as u32,
-        })
+        Ok(shot)
     }
 
     fn get_star(&self) -> u32 {
@@ -612,6 +569,12 @@ impl YasScanner {
         }
 
         star
+    }
+
+    fn create_dumps_folder(&self) {
+        if !Path::new("dumps").exists() {
+            fs::create_dir("dumps").expect("create dir error");
+        }
     }
 
     // fn get_lock(&self, lock_last: bool) -> bool {
@@ -646,28 +609,23 @@ impl YasScanner {
             width: self.info.width as i32,
             height: self.info.height as i32,
         };
-        let mut pixels = capture::capture_absolute(&rect).unwrap();
+        // let mut pixels = capture::capture_absolute(&rect).unwrap();
+        let mut shot = capture::capture_absolute_raw_image(&rect).unwrap();
         let mut locks: Vec<bool> = Vec::new();
         let info = &self.info;
         for row in start_row..self.row {
             let y =
                 (info.top_margin + self.offset_y + info.art_lock_y + info.art_shift_y * row as f64)
-                    .round() as u32;
+                    .round() as i32;
             for col in 0..self.col {
                 let x = (info.left_margin + info.art_lock_x + info.art_shift_x * col as f64).round()
-                    as u32;
+                    as i32;
                 // 检测以(x, y)为中心的7x7方块内是否有锁的颜色
                 let mut locked = false;
-                'sq: for dx in 0..7 {
-                    for dy in 0..7 {
-                        let color =
-                            self.get_color_from_window_pixels((x + dx) - 3, (y + dy) - 3, &pixels);
-                        self.set_color_in_window_pixels(
-                            (x + dx) - 3,
-                            (y + dy) - 3,
-                            &mut pixels,
-                            &Color(255, 0, 0),
-                        );
+                'sq: for dx in -3..3 {
+                    for dy in -3..3 {
+                        let color = shot.get_color((x + dx) as u32, (y + dy) as u32);
+                        shot.set_color((x + dx) as u32, (y + dy) as u32, &Color(255, 0, 0));
                         if Color::from(255, 138, 117).dis_2(&color) < 1 {
                             locked = true;
                             // break 'sq;
@@ -678,11 +636,8 @@ impl YasScanner {
             }
         }
         // dump marked screenshot for debug
-        if !Path::new("dumps").exists() {
-            fs::create_dir("dumps").expect("create dir error");
-        }
-        self.save_window_pixels_as_img(&pixels)
-            .save(format!("dumps/lock_{}.png", self.scrolled_rows))
+        self.create_dumps_folder();
+        shot.save(&format!("dumps/lock_{}.png", self.scrolled_rows))
             .expect("save image error");
         locks
     }
@@ -759,10 +714,6 @@ impl YasScanner {
     }
 
     pub fn screenshot_and_mark(&self) {
-        if !Path::new("dumps").exists() {
-            fs::create_dir("dumps").expect("create dir error");
-        }
-
         // take screenshot
         let rect = PixelRect {
             left: self.info.left,
@@ -770,80 +721,39 @@ impl YasScanner {
             width: self.info.width as i32,
             height: self.info.height as i32,
         };
-        let mut pixels = capture::capture_absolute(&rect).unwrap();
+        let mut shot = capture_absolute_raw_image(&rect).unwrap();
         // mark
         let mark_color = Color(255, 0, 0);
         let alpha = 0.3;
-        self.mark_in_window_pixels(&self.info.panel_position, &mut pixels, &mark_color, alpha);
-        self.mark_in_window_pixels(&self.info.title_position, &mut pixels, &mark_color, alpha);
-        self.mark_in_window_pixels(
-            &self.info.main_stat_name_position,
-            &mut pixels,
-            &mark_color,
-            alpha,
-        );
-        self.mark_in_window_pixels(
-            &self.info.main_stat_value_position,
-            &mut pixels,
-            &mark_color,
-            alpha,
-        );
-        self.mark_in_window_pixels(
-            &self.info.sub_stat1_position,
-            &mut pixels,
-            &mark_color,
-            alpha,
-        );
-        self.mark_in_window_pixels(
-            &self.info.sub_stat2_position,
-            &mut pixels,
-            &mark_color,
-            alpha,
-        );
-        self.mark_in_window_pixels(
-            &self.info.sub_stat3_position,
-            &mut pixels,
-            &mark_color,
-            alpha,
-        );
-        self.mark_in_window_pixels(
-            &self.info.sub_stat4_position,
-            &mut pixels,
-            &mark_color,
-            alpha,
-        );
-        self.mark_in_window_pixels(&self.info.level_position, &mut pixels, &mark_color, alpha);
-        self.mark_in_window_pixels(&self.info.equip_position, &mut pixels, &mark_color, alpha);
-        self.mark_in_window_pixels(
-            &self.info.art_count_position,
-            &mut pixels,
-            &mark_color,
-            alpha,
-        );
-        self.set_color_in_window_pixels(
-            self.info.menu_x,
-            self.info.menu_y,
-            &mut pixels,
-            &mark_color,
-        );
-        self.mark_in_window_pixels(
+        shot.mark(&self.info.panel_position, &mark_color, alpha);
+        shot.mark(&self.info.title_position, &mark_color, alpha);
+        shot.mark(&self.info.main_stat_name_position, &mark_color, alpha);
+        shot.mark(&self.info.main_stat_value_position, &mark_color, alpha);
+        shot.mark(&self.info.sub_stat1_position, &mark_color, alpha);
+        shot.mark(&self.info.sub_stat2_position, &mark_color, alpha);
+        shot.mark(&self.info.sub_stat3_position, &mark_color, alpha);
+        shot.mark(&self.info.sub_stat4_position, &mark_color, alpha);
+        shot.mark(&self.info.level_position, &mark_color, alpha);
+        shot.mark(&self.info.equip_position, &mark_color, alpha);
+        shot.mark(&self.info.art_count_position, &mark_color, alpha);
+        shot.set_color(self.info.menu_x, self.info.menu_y, &mark_color);
+        shot.mark(
             &PixelRectBound {
                 left: self.info.scrollbar_left as i32,
                 top: self.info.scrollbar_top as i32,
                 right: self.info.scrollbar_left as i32,
                 bottom: self.info.scrollbar_top as i32 + self.info.scrollbar_height as i32,
             },
-            &mut pixels,
             &mark_color,
             alpha,
         );
         // save
-        self.save_window_pixels_as_img(&pixels)
-            .save(format!(
-                "dumps/{}x{}.png",
-                self.info.width, self.info.height
-            ))
-            .expect("save image error");
+        self.create_dumps_folder();
+        shot.save(&format!(
+            "dumps/{}x{}.png",
+            self.info.width, self.info.height
+        ))
+        .expect("save image error");
     }
 
     pub fn scan(&mut self) -> Vec<InternalArtifact> {
@@ -851,6 +761,7 @@ impl YasScanner {
         self.scroll_to_top();
         self.get_scroll_speed();
         self.screenshot_and_mark();
+        self.create_dumps_folder();
 
         if self.config.capture_only {
             self.start_capture_only();
@@ -1056,6 +967,11 @@ impl YasScanner {
                     // utils::sleep(80);
 
                     let capture = self.capture_panel().unwrap();
+
+                    capture
+                        .save(&format!("dumps/art_{}.png", scanned_count + 1))
+                        .expect("save image error");
+
                     let star = self.get_star();
                     if star < self.config.min_star {
                         break 'outer;

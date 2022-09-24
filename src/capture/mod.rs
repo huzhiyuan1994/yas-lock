@@ -14,7 +14,7 @@ use winapi::um::winuser::{GetDC, ReleaseDC};
 use image::ImageBuffer;
 
 use crate::common::color::Color;
-use crate::common::PixelRect;
+use crate::common::{PixelRect, RawCaptureImage};
 
 #[cfg(windows)]
 unsafe fn unsafe_capture(rect: &PixelRect) -> Result<Vec<u8>, String> {
@@ -118,6 +118,16 @@ unsafe fn unsafe_capture(rect: &PixelRect) -> Result<Vec<u8>, String> {
 #[cfg(windows)]
 pub fn capture_absolute(rect: &PixelRect) -> Result<Vec<u8>, String> {
     unsafe { unsafe_capture(&rect) }
+}
+
+#[cfg(windows)]
+pub fn capture_absolute_raw_image(rect: &PixelRect) -> Result<RawCaptureImage, String> {
+    let pixels = capture_absolute(&rect)?;
+    Ok(RawCaptureImage {
+        data: pixels,
+        w: rect.width as u32,
+        h: rect.height as u32,
+    })
 }
 
 #[cfg(windows)]

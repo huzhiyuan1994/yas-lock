@@ -1,13 +1,15 @@
 use crate::capture;
 use crate::inference::pre_process::{pre_process, raw_to_img, to_gray, uint8_raw_to_img};
 use crate::info::info::ScanInfo;
-use image::{GrayImage, ImageBuffer, RgbImage};
+use image::{GrayImage, ImageBuffer, ImageResult, RgbImage};
 use log::info;
 use std::time::SystemTime;
 
 pub mod buffer;
 pub mod color;
 pub mod utils;
+
+use color::Color;
 
 #[derive(Debug)]
 pub struct PixelRect {
@@ -105,23 +107,16 @@ impl RawImage {
 }
 
 impl RawCaptureImage {
-    pub fn save(&self, path: &str) {
-        let width = self.w;
-        let height = self.h;
+    pub fn save(&self, path: &str) -> ImageResult<()> {
         let data = &self.data;
 
-        let img = ImageBuffer::from_fn(width, height, |x, y| {
-            let index = (y * self.w + x) as usize;
-
-            let b = data[index * 4];
-            let g = data[index * 4 + 1];
-            let r = data[index * 4 + 2];
-
-            image::Rgb([r, g, b])
+        let img = ImageBuffer::from_fn(self.w, self.h, |x, y| {
+            let p = ((self.h - 1 - y) * self.w + x) as usize * 4;
+            image::Rgb([data[p + 2], data[p + 1], data[p]])
             // image::Luma([pixel])
         });
 
-        img.save(path);
+        img.save(path)
     }
     pub fn crop_to_raw_img(&self, rect: &PixelRect) -> RawImage {
         // let now = SystemTime::now();
@@ -152,6 +147,33 @@ impl RawCaptureImage {
         // info!("preprocess time: {}ms", now.elapsed().unwrap().as_millis());
         // im.to_gray_image().save("test.png");
         im
+    }
+    pub fn get_color(&self, x: u32, y: u32) -> Color {
+        let p = ((self.h - 1 - y) * self.w + x) as usize * 4;
+        Color(self.data[p + 2], self.data[p + 1], self.data[p])
+    }
+    pub fn set_color(&mut self, x: u32, y: u32, color: &Color) {
+        let p = ((self.h - 1 - y) * self.w + x) as usize * 4;
+        self.data[p + 0] = color.2;
+        self.data[p + 1] = color.1;
+        self.data[p + 2] = color.0;
+    }
+    pub fn mark(&mut self, rect: &PixelRectBound, color: &Color, alpha: f64) {
+        let width = (rect.right - rect.left + 1) as usize;
+        let height = (rect.bottom - rect.top + 1) as usize;
+        for i in 0..width {
+            for j in 0..height {
+                let x = rect.left as u32 + i as u32;
+                let y = rect.top as u32 + j as u32;
+                let p = ((self.h - 1 - y) * self.w + x) as usize * 4;
+                self.data[p + 0] =
+                    (self.data[p + 0] as f64 * (1.0 - alpha) + color.2 as f64 * alpha) as u8;
+                self.data[p + 1] =
+                    (self.data[p + 1] as f64 * (1.0 - alpha) + color.1 as f64 * alpha) as u8;
+                self.data[p + 2] =
+                    (self.data[p + 2] as f64 * (1.0 - alpha) + color.0 as f64 * alpha) as u8;
+            }
+        }
     }
 }
 

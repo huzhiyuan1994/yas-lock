@@ -171,7 +171,7 @@ pub const WINDOW_16_9: WindowInfo = WindowInfo {
     art_lock_x: 12.0,
     art_lock_y: 14.0,
 
-    ruler_left: 150.0,
+    ruler_left: 272.0,
     ruler_top: 102.0,
     ruler_height: 123.0,
 
@@ -217,7 +217,7 @@ pub const WINDOW_8_5: WindowInfo = WindowInfo {
     lock_y: 322.0,
     art_lock_x: 10.0,
     art_lock_y: 12.0,
-    ruler_left: 133.0,
+    ruler_left: 243.0,
     ruler_top: 93.0,
     ruler_height: 108.0,
     menu_x: 489.0,
@@ -260,7 +260,7 @@ pub const WINDOW_4_3: WindowInfo = WindowInfo {
     pool_pos: Rect(93.2, 912.7 + 15.0, 412.4, 912.7),
     art_lock_x: 9.0,
     art_lock_y: 10.0,
-    ruler_left: 118.0,
+    ruler_left: 216.0,
     ruler_top: 83.0,
     ruler_height: 96.0,
     menu_x: 436.0,
