@@ -32,8 +32,7 @@ pub struct YasScannerConfig {
     verbose: bool,
     dump_mode: bool,
     speed: u32,
-    // offset_x: i32,
-    // offset_y: i32,
+    no_check: bool,
 }
 
 impl YasScannerConfig {
@@ -61,8 +60,7 @@ impl YasScannerConfig {
             number: matches.value_of("number").unwrap_or("0").parse::<u32>()?,
             verbose: matches.is_present("verbose"),
             speed: matches.value_of("speed").unwrap_or("5").parse::<u32>()?,
-            // offset_x: matches.value_of("offset-x").unwrap_or("0").parse::<i32>().unwrap(),
-            // offset_y: matches.value_of("offset-y").unwrap_or("0").parse::<i32>().unwrap(),
+            no_check: matches.is_present("no-check"),
         })
     }
 }
@@ -724,11 +722,13 @@ impl YasScanner {
     }
 
     pub fn scan(&mut self) -> Result<Vec<InternalArtifact>> {
-        self.check_menu()?;
+        if !self.config.no_check {
+            self.check_menu()?;
+        }
         self.scroll_to_top()?;
         self.get_scroll_speed()?;
-        self.screenshot_and_mark()?;
         self.create_dumps_folder()?;
+        self.screenshot_and_mark()?;
 
         if self.config.capture_only {
             self.start_capture_only()?;
@@ -982,7 +982,9 @@ impl YasScanner {
         Ok(results)
     }
     pub fn flip_lock(&mut self, indices: Vec<u32>) -> Result<()> {
-        self.check_menu()?;
+        if !self.config.no_check {
+            self.check_menu()?;
+        }
         self.scroll_to_top()?;
         self.get_scroll_speed()?;
         let mut indices = indices;

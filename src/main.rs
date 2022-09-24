@@ -7,6 +7,7 @@ use std::io::Write;
 use std::path::Path;
 use std::time::SystemTime;
 
+use yas::capture::capture_absolute_image;
 use yas::common::utils;
 use yas::expo::genmo::GenmoFormat;
 use yas::expo::good::GoodFormat;
@@ -159,14 +160,12 @@ fn start() -> Result<()> {
         .arg(
             Arg::with_name("dump")
                 .long("dump")
-                .required(false)
                 .takes_value(false)
                 .help("输出模型预测结果、二值化图像和灰度图像，debug专用"),
         )
         .arg(
             Arg::with_name("capture-only")
                 .long("capture-only")
-                .required(false)
                 .takes_value(false)
                 .help("只保存截图，不进行扫描，debug专用"),
         )
@@ -238,6 +237,12 @@ fn start() -> Result<()> {
                 .min_values(1)
                 .max_values(5),
         )
+        .arg(
+            Arg::with_name("no-check")
+                .long("no-check")
+                .takes_value(false)
+                .help("不检测是否已打开背包等"),
+        )
         .get_matches();
 
     let config = YasScannerConfig::from_match(&matches)?;
@@ -267,11 +272,22 @@ fn start() -> Result<()> {
     utils::show_window_and_set_foreground(hwnd);
     utils::sleep(1000);
 
-    let rect = utils::get_client_rect(hwnd)?;
+    let mut rect = utils::get_client_rect(hwnd)?;
 
-    info!("分辨率: {}x{}", rect.width, rect.height);
+    let offset_x = matches.value_of("offset-x").unwrap_or("0").parse::<i32>()?;
+    let offset_y = matches.value_of("offset-y").unwrap_or("0").parse::<i32>()?;
 
-    let mut info: info::ScanInfo;
+    rect.left += offset_x;
+    rect.top += offset_y;
+
+    capture_absolute_image(&rect)?.save("test.png")?;
+
+    info!(
+        "left = {}, top = {}, width = {}, height = {}",
+        rect.left, rect.top, rect.width, rect.height
+    );
+
+    let info: info::ScanInfo;
     if rect.height * 16 == rect.width * 9 {
         info =
             info::ScanInfo::from_16_9(rect.width as u32, rect.height as u32, rect.left, rect.top);
@@ -282,12 +298,6 @@ fn start() -> Result<()> {
     } else {
         return Err(anyhow!("不支持的分辨率"));
     }
-
-    let offset_x = matches.value_of("offset-x").unwrap_or("0").parse::<i32>()?;
-    let offset_y = matches.value_of("offset-y").unwrap_or("0").parse::<i32>()?;
-
-    info.left += offset_x;
-    info.top += offset_y;
 
     let mut scanner = YasScanner::new(info.clone(), config)?;
 
