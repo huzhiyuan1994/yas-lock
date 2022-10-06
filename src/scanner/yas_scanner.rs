@@ -17,7 +17,7 @@ use crate::artifact::internal_artifact::{
 };
 use crate::capture;
 use crate::common::color::Color;
-use crate::common::{utils, PixelRect, PixelRectBound, RawCaptureImage};
+use crate::common::{utils, PixelRect, RawCaptureImage};
 use crate::inference::inference::CRNNModel;
 use crate::inference::pre_process::pre_process;
 use crate::info::info::ScanInfo;
@@ -144,17 +144,6 @@ impl YasScanResult {
     }
 }
 
-fn calc_pool(row: &Vec<u8>) -> f64 {
-    let len = row.len() / 4;
-    let mut pool: f64 = 0.0;
-
-    for i in 0..len {
-        pool += row[i * 4] as f64;
-    }
-    // pool /= len as f64;
-    pool
-}
-
 fn eq(x: u8, y: u8, threshold: u8) -> bool {
     if x < y {
         y - x <= threshold
@@ -229,7 +218,7 @@ impl YasScanner {
 
 impl YasScanner {
     fn capture(&mut self, rect: &PixelRect) -> Result<RawCaptureImage> {
-        let (pixels, (w, h)) = self
+        let (pixels, (w, _)) = self
             .dxg
             .capture_frame()
             .map_err(|_| anyhow!("dxg capture err"))?;
@@ -1098,6 +1087,7 @@ impl YasScanner {
         }
         Ok(())
     }
+    #[allow(unused)]
     pub fn test(&mut self) -> Result<Vec<bool>> {
         self.scroll_to_top()?;
         self.get_scroll_speed()?;
@@ -1116,7 +1106,7 @@ impl YasScanner {
         let mut scanned_count = 0_u32;
         let mut start_row = 0_u32;
 
-        let mut results: Vec<bool> = vec![];
+        let results: Vec<bool> = vec![];
 
         'outer: while scanned_count < count {
             let locks = self.get_locks(start_row)?;

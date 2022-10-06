@@ -1,4 +1,4 @@
-use crate::common::{PixelRect, PixelRectBound};
+use crate::common::PixelRect;
 use crate::info::info::ScanInfo;
 
 pub struct Rect(f64, f64, f64, f64); // top, right, bottom, left
