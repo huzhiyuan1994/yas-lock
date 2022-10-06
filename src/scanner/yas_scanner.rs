@@ -542,21 +542,20 @@ impl YasScanner {
                 self.pool = pool;
                 diff_flag = true;
                 consecutive_time = 0;
-            // info!("avg switch time: {}ms", self.avg_switch_time);
-            } else {
-                if diff_flag {
-                    // info!("switched");
-                    consecutive_time += 1;
-                    if consecutive_time + self.config.speed >= 6 {
-                        self.avg_switch_time = (self.avg_switch_time * self.scanned_count as f64
-                            + now.elapsed()?.as_millis() as f64)
-                            / (self.scanned_count as f64 + 1.0);
-                        self.scanned_count += 1;
-                        return Ok(shot);
-                    }
-                    // } else {
-                    //     info!("pool: same");
+                // info!("avg switch time: {}ms", self.avg_switch_time);
+            }
+            if diff_flag {
+                // info!("switched");
+                consecutive_time += 1;
+                if consecutive_time + self.config.speed >= 6 {
+                    self.avg_switch_time = (self.avg_switch_time * self.scanned_count as f64
+                        + now.elapsed()?.as_millis() as f64)
+                        / (self.scanned_count as f64 + 1.0);
+                    self.scanned_count += 1;
+                    return Ok(shot);
                 }
+                // } else {
+                //     info!("pool: same");
             }
         }
 
