@@ -452,6 +452,7 @@ impl YasScanner {
             height: self.info.art_height as i32,
         };
         let now = SystemTime::now();
+        let mut delta = 1.0;
         while now.elapsed()?.as_millis() < self.config.max_wait_scroll as u128 {
             let shot = self.capture(&rect)?;
             let mut ratio = 0.0;
@@ -461,21 +462,25 @@ impl YasScanner {
                     break;
                 }
             }
-            let delta = (ratio - 0.822).abs();
+            delta = (ratio - 0.822).abs();
             if delta < 0.02 {
                 return Ok(());
-            } else {
-                warn!(
-                    "翻页可能未完成，等待中 (row {}, delta {} > 0.02)",
-                    self.scrolled_rows, delta
-                );
+                // } else {
+                //     warn!(
+                //         "翻页可能未完成，等待中 (row {}, delta {} > 0.02)",
+                //         self.scrolled_rows, delta
+                //     );
             }
         }
 
         self.create_dumps_folder()?;
         let shot = self.capture(&rect)?;
         shot.save("dumps/err_scroll.png")?;
-        Err(anyhow!("翻页失败 (dumps/err_scroll.png)"))
+        Err(anyhow!(
+            "翻页超时 (time: {}, delta: {}, shot: dumps/err_scroll.png)",
+            now.elapsed()?.as_millis(),
+            delta
+        ))
     }
 
     fn wait_until_switched(&mut self) -> Result<RawCaptureImage> {
