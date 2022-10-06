@@ -1,4 +1,4 @@
-use crate::common::PixelRectBound;
+use crate::common::{PixelRect, PixelRectBound};
 use crate::info::info::ScanInfo;
 
 pub struct Rect(f64, f64, f64, f64); // top, right, bottom, left
@@ -38,8 +38,6 @@ pub struct WindowInfo {
     pub star_x: f64,
     pub star_y: f64,
 
-    pub pool_pos: Rect,
-
     pub lock_x: f64,
     pub lock_y: f64,
 
@@ -69,11 +67,11 @@ impl WindowInfo {
             let bottom = rect.2 / self.height * h;
             let left = rect.3 / self.width * w;
 
-            PixelRectBound {
-                left: left as i32,
-                top: top as i32,
-                right: right as i32,
-                bottom: bottom as i32,
+            PixelRect {
+                left: left.round() as i32,
+                top: top.round() as i32,
+                width: (right - left).round() as i32,
+                height: (bottom - top).round() as i32,
             }
         };
 
@@ -81,18 +79,26 @@ impl WindowInfo {
 
         let convert_y = |y: f64| y / self.height * h;
 
+        let p = convert_rect(&self.panel_pos);
+        let to_rel = |rect: PixelRect| PixelRect {
+            left: rect.left - p.left,
+            top: rect.top - p.top,
+            width: rect.width,
+            height: rect.height,
+        };
+
         ScanInfo {
-            title_position: convert_rect(&self.title_pos),
-            main_stat_name_position: convert_rect(&self.main_stat_name_pos),
-            main_stat_value_position: convert_rect(&self.main_stat_value_pos),
-            level_position: convert_rect(&self.level_pos),
             panel_position: convert_rect(&self.panel_pos),
-            sub_stat1_position: convert_rect(&self.sub_stat1_pos),
-            sub_stat2_position: convert_rect(&self.sub_stat2_pos),
-            sub_stat3_position: convert_rect(&self.sub_stat3_pos),
-            sub_stat4_position: convert_rect(&self.sub_stat4_pos),
-            equip_position: convert_rect(&self.equip_pos),
-            art_count_position: convert_rect(&self.art_count_pos),
+            title_position: to_rel(convert_rect(&self.title_pos)),
+            main_stat_name_position: to_rel(convert_rect(&self.main_stat_name_pos)),
+            main_stat_value_position: to_rel(convert_rect(&self.main_stat_value_pos)),
+            level_position: to_rel(convert_rect(&self.level_pos)),
+            sub_stat1_position: to_rel(convert_rect(&self.sub_stat1_pos)),
+            sub_stat2_position: to_rel(convert_rect(&self.sub_stat2_pos)),
+            sub_stat3_position: to_rel(convert_rect(&self.sub_stat3_pos)),
+            sub_stat4_position: to_rel(convert_rect(&self.sub_stat4_pos)),
+            equip_position: to_rel(convert_rect(&self.equip_pos)),
+            art_count_position: convert_rect(&self.art_count_pos).to_bound(),
             art_width: convert_x(self.art_width) as u32,
             art_height: convert_y(self.art_height) as u32,
             art_gap_x: convert_x(self.art_gap_x) as u32,
@@ -109,7 +115,6 @@ impl WindowInfo {
             flag_y: convert_y(self.flag_y) as u32,
             star_x: convert_x(self.star_x) as u32,
             star_y: convert_y(self.star_y) as u32,
-            pool_position: convert_rect(&self.pool_pos),
             lock_x: convert_x(self.lock_x) as u32,
             lock_y: convert_y(self.lock_y) as u32,
             art_lock_x: convert_x(self.art_lock_x),
@@ -163,8 +168,6 @@ pub const WINDOW_16_9: WindowInfo = WindowInfo {
     star_x: 379.4,
     star_y: 23.9,
 
-    pool_pos: Rect(18.2, 54.7 + 15.0, 410.3, 54.7),
-
     lock_x: 1450.0,
     lock_y: 357.0,
 
@@ -212,7 +215,6 @@ pub const WINDOW_8_5: WindowInfo = WindowInfo {
     flag_y: 82.1,
     star_x: 340.3,
     star_y: 21.3,
-    pool_pos: Rect(13.6, 47.5 + 15.0, 370.7, 47.5),
     lock_x: 1305.0,
     lock_y: 322.0,
     art_lock_x: 10.0,
@@ -257,7 +259,6 @@ pub const WINDOW_4_3: WindowInfo = WindowInfo {
     star_y: 15.8,
     lock_x: 1160.0,
     lock_y: 286.0,
-    pool_pos: Rect(13.2, 40.7 + 15.0, 332.4, 40.7),
     art_lock_x: 9.0,
     art_lock_y: 10.0,
     ruler_left: 216.0,

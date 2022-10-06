@@ -5,20 +5,20 @@ use crate::info::window_info::{WINDOW_16_9, WINDOW_4_3, WINDOW_8_5};
 pub struct ScanInfo {
     // pub panel_height: u32,
     // pub panel_width: u32,
+    pub panel_position: PixelRect,
 
-    // pub panel_position: PixelRectBound,
-    pub title_position: PixelRectBound,
-    pub main_stat_name_position: PixelRectBound,
-    pub main_stat_value_position: PixelRectBound,
-    pub level_position: PixelRectBound,
-    pub panel_position: PixelRectBound,
+    pub title_position: PixelRect,
+    pub main_stat_name_position: PixelRect,
+    pub main_stat_value_position: PixelRect,
+    pub level_position: PixelRect,
 
-    pub sub_stat1_position: PixelRectBound,
-    pub sub_stat2_position: PixelRectBound,
-    pub sub_stat3_position: PixelRectBound,
-    pub sub_stat4_position: PixelRectBound,
+    pub sub_stat1_position: PixelRect,
+    pub sub_stat2_position: PixelRect,
+    pub sub_stat3_position: PixelRect,
+    pub sub_stat4_position: PixelRect,
 
-    pub equip_position: PixelRectBound,
+    pub equip_position: PixelRect,
+
     pub art_count_position: PixelRectBound,
 
     pub art_width: u32,
@@ -42,8 +42,6 @@ pub struct ScanInfo {
 
     pub star_x: u32,
     pub star_y: u32,
-
-    pub pool_position: PixelRectBound,
 
     /* yas-lock specific */
     // a point inside lock icon
