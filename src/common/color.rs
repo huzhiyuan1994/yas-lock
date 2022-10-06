@@ -1,18 +1,15 @@
 #[derive(Debug)]
-pub struct Color (pub u8, pub u8, pub u8);
+pub struct Color(pub u8, pub u8, pub u8);
 
 impl Color {
-    pub fn is_same(&self, other: &Color) -> bool {
-        let dis = self.dis_2(other);
-
-        dis < 20
+    pub fn eq(&self, other: &Color) -> bool {
+        self.0 == other.0 && self.1 == other.1 && self.2 == other.2
     }
 
     pub fn dis_2(&self, other: &Color) -> u32 {
         let dis = (self.0 as i32 - other.0 as i32) * (self.0 as i32 - other.0 as i32)
             + (self.1 as i32 - other.1 as i32) * (self.1 as i32 - other.1 as i32)
-            + (self.2 as i32 - other.2 as i32) * (self.2 as i32 - other.2 as i32)
-            ;
+            + (self.2 as i32 - other.2 as i32) * (self.2 as i32 - other.2 as i32);
         dis as u32
     }
 

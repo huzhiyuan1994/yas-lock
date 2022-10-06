@@ -33,6 +33,8 @@ pub struct YasScannerConfig {
     dump_mode: bool,
     speed: u32,
     no_check: bool,
+    max_wait_scroll: u32,
+    mark: bool,
 }
 
 impl YasScannerConfig {
@@ -44,6 +46,7 @@ impl YasScannerConfig {
                 .parse::<u32>()?,
             capture_only: matches.is_present("capture-only"),
             dump_mode: matches.is_present("dump"),
+            mark: matches.is_present("mark"),
             min_star: matches.value_of("min-star").unwrap_or("5").parse::<u32>()?,
             min_level: matches
                 .value_of("min-level")
@@ -61,6 +64,10 @@ impl YasScannerConfig {
             verbose: matches.is_present("verbose"),
             speed: matches.value_of("speed").unwrap_or("5").parse::<u32>()?,
             no_check: matches.is_present("no-check"),
+            max_wait_scroll: matches
+                .value_of("max-wait-scroll")
+                .unwrap_or("0")
+                .parse::<u32>()?,
         })
     }
 }
@@ -266,6 +273,9 @@ impl YasScanner {
     }
 
     fn check_menu(&self) -> Result<()> {
+        if self.config.no_check {
+            return Ok(());
+        }
         let color = self.get_color(self.info.menu_x, self.info.menu_y)?;
         if Color::from(236, 229, 216).dis_2(&color) > 0 {
             return Err(anyhow!("请打开背包圣遗物栏"));
@@ -378,97 +388,72 @@ impl YasScanner {
         }
     }
 
-    // fn scroll_one_row(&mut self) -> ScrollResult {
-    //     let mut state = 0;
-    //     let mut count = 0;
-    //     let max_scroll = 20;
-    //     while count < max_scroll {
-    //         if utils::is_rmb_down() {
-    //             return ScrollResult::Interrupt;
-    //         }
+    fn scroll_rows(&mut self, count: u32) -> Result<()> {
+        if count == 0 {
+            return Ok(());
+        }
 
-    //         self.enigo.mouse_scroll_y(-5);
-    //         utils::sleep(self.config.scroll_stop);
-    //         count += 1;
-    //         let color: Color = self.get_flag_color();
-    //         // println!("{:?}", color);
-    //         if state == 0 && !color.is_same(&self.initial_color) {
-    //             state = 1;
-    //         } else if state == 1 && self.initial_color.is_same(&color) {
-    //             self.avg_scroll_one_row = (self.avg_scroll_one_row * self.scrolled_rows as f64
-    //                 + count as f64)
-    //                 / (self.scrolled_rows as f64 + 1.0);
-    //             info!("avg scroll/row: {}", self.avg_scroll_one_row);
-    //             self.scrolled_rows += 1;
-    //             return ScrollResult::Success;
-    //         }
-    //     }
-
-    //     ScrollResult::TLE
-    // }
-
-    fn scroll_rows(&mut self, count: u32) -> ScrollResult {
         let total_pixels = self.offset_y + self.info.art_shift_y * count as f64;
         let total_scrolls = (total_pixels / self.pixels_per_scroll).round();
         self.offset_y = total_pixels - total_scrolls * self.pixels_per_scroll;
         self.scroll(-total_scrolls as i32);
         self.scrolled_rows += count;
-        /*
-        if self.pixel_per_scroll > 0 {
-        } else {
-            if self.scrolled_rows >= 5 {
-                let scroll = ((self.avg_scroll_one_row * count as f64 - 3.0).round() as u32).max(0);
-                for _ in 0..scroll {
-                    self.enigo.mouse_scroll_y(-1);
-                }
-                utils::sleep(400);
-                self.align_row();
-                return ScrollResult::Skip;
-            }
 
-            for _ in 0..count {
-                match self.scroll_one_row() {
-                    ScrollResult::TLE => return ScrollResult::TLE,
-                    ScrollResult::Interrupt => return ScrollResult::Interrupt,
-                    _ => (),
+        if self.config.max_wait_scroll == 0 || count == 1 {
+            return Ok(());
+        }
+
+        // wait until scrolled
+        let rect = PixelRect {
+            left: self.info.left + self.info.left_margin.round() as i32,
+            top: self.info.top
+                + (self.info.top_margin
+                    + self.offset_y
+                    + self.info.art_shift_y * (self.row - count) as f64)
+                    .round() as i32,
+            width: self.info.art_width as i32,
+            height: self.info.art_height as i32,
+        };
+        let mut shot = capture_absolute_raw_image(&rect)?;
+        let now = SystemTime::now();
+        while now.elapsed()?.as_millis() < self.config.max_wait_scroll as u128 {
+            shot = capture_absolute_raw_image(&rect)?;
+            let mut ratio = 0.0;
+            for y in 0..(rect.height as u32) {
+                if shot.get_color(5, y)?.eq(&Color(233, 229, 220)) {
+                    ratio = y as f64 / rect.height as f64;
+                    break;
                 }
+            }
+            let delta = (ratio - 0.822).abs();
+            if delta < 0.02 {
+                return Ok(());
+            } else {
+                warn!(
+                    "翻页可能未完成，等待中 (row {}, delta {} > 0.02)",
+                    self.scrolled_rows, delta
+                );
             }
         }
-        */
 
-        ScrollResult::Success
+        self.create_dumps_folder()?;
+        shot.save("dumps/err_scroll.png")?;
+        Err(anyhow!("翻页失败 (dumps/err_scroll.png)"))
     }
 
-    // fn align_row(&mut self) -> bool {
-    //     let mut count = 0;
-    //     while count < 10 {
-    //         let color = self.get_flag_color();
-    //         if color.is_same(&self.initial_color) {
-    //             return true;
-    //         }
-
-    //         self.enigo.mouse_scroll_y(-1);
-    //         utils::sleep(self.config.scroll_stop);
-    //         count += 1;
-    //     }
-
-    //     false
-    // }
-
-    fn wait_until_switched(&mut self) -> Result<bool> {
+    fn wait_until_switched(&mut self) -> Result<RawCaptureImage> {
         let now = SystemTime::now();
         let mut consecutive_time = 0;
         let mut diff_flag = false;
         while now.elapsed()?.as_millis() < self.config.max_wait_switch_artifact as u128 {
             // let pool_start = SystemTime::now();
-            let rect = PixelRect {
-                left: self.info.left as i32 + self.info.pool_position.left,
-                top: self.info.top as i32 + self.info.pool_position.top,
-                width: self.info.pool_position.right - self.info.pool_position.left,
-                height: self.info.pool_position.bottom - self.info.pool_position.top,
-            };
-            let im = capture::capture_absolute(&rect)?;
-            let pool = calc_pool(&im);
+            let shot = self.capture_panel()?;
+            let mut pool = 0_f64;
+            for x in self.info.pool_position.left..self.info.pool_position.right {
+                for y in self.info.pool_position.top..self.info.pool_position.bottom {
+                    pool += shot.get_color(x as u32, y as u32)?.2 as f64;
+                }
+            }
             // info!("pool: {}", pool);
             // println!("pool time: {}ms", pool_start.elapsed().unwrap().as_millis());
 
@@ -499,7 +484,7 @@ impl YasScanner {
                             + now.elapsed()?.as_millis() as f64)
                             / (self.scanned_count as f64 + 1.0);
                         self.scanned_count += 1;
-                        return Ok(true);
+                        return Ok(shot);
                     }
                     // } else {
                     //     info!("pool: same");
@@ -507,7 +492,12 @@ impl YasScanner {
             }
         }
 
-        Ok(false)
+        warn!(
+            "Max wait switch artifact exceeded ({} ms)",
+            self.config.max_wait_switch_artifact
+        );
+
+        self.capture_panel()
     }
 
     fn capture_panel(&mut self) -> Result<RawCaptureImage> {
@@ -524,11 +514,8 @@ impl YasScanner {
         Ok(shot)
     }
 
-    fn get_star(&self) -> Result<u32> {
-        let color = capture::get_color(
-            (self.info.star_x as i32 + self.info.left) as u32,
-            (self.info.star_y as i32 + self.info.top) as u32,
-        )?;
+    fn get_star(&self, shot: &RawCaptureImage) -> Result<u32> {
+        let color = shot.get_color(self.info.star_x, self.info.star_y)?;
 
         let color_1 = Color::from(113, 119, 139);
         let color_2 = Color::from(42, 143, 114);
@@ -561,25 +548,6 @@ impl YasScanner {
         Ok(())
     }
 
-    // fn get_lock(&self, lock_last: bool) -> bool {
-    //     let color = capture::get_color(
-    //         (self.info.lock_x as i32 + self.info.left) as u32,
-    //         (self.info.lock_y as i32 + self.info.top) as u32,
-    //     );
-    //     // info!("Lock color: {} {} {}", color.0, color.1, color.2);
-
-    //     let color_t = Color::from(73, 83, 102);
-    //     let color_f = Color::from(241, 237, 232);
-
-    //     if color_t.dis_2(&color) <= 3 {
-    //         return true;
-    //     } else if color_f.dis_2(&color) <= 3 {
-    //         return false;
-    //     } else {
-    //         return !lock_last; // switch animation
-    //     }
-    // }
-
     fn get_locks(&mut self, start_row: u32) -> Result<Vec<bool>> {
         // move focus out of all artifacts
         self.enigo
@@ -593,8 +561,7 @@ impl YasScanner {
             width: self.info.width as i32,
             height: self.info.height as i32,
         };
-        // let mut pixels = capture::capture_absolute(&rect).unwrap();
-        let mut shot = capture::capture_absolute_raw_image(&rect)?;
+        let mut shot = capture_absolute_raw_image(&rect)?;
         let mut locks: Vec<bool> = Vec::new();
         let info = &self.info;
         for row in start_row..self.row {
@@ -606,21 +573,59 @@ impl YasScanner {
                     as i32;
                 // 检测以(x, y)为中心的7x7方块内是否有锁的颜色
                 let mut locked = false;
-                for dx in -3..3 {
+                'sq: for dx in -3..3 {
                     for dy in -3..3 {
-                        let color = shot.get_color((x + dx) as u32, (y + dy) as u32);
-                        shot.set_color((x + dx) as u32, (y + dy) as u32, &Color(255, 0, 0));
+                        let color = shot.get_color((x + dx) as u32, (y + dy) as u32)?;
                         if Color::from(255, 138, 117).dis_2(&color) < 1 {
                             locked = true;
+                            break 'sq;
                         }
                     }
                 }
+                // mark: lock red / unlock green
+                if self.config.mark {
+                    for dx in -3..3 {
+                        for dy in -3..3 {
+                            if locked {
+                                shot.set_color(
+                                    (x + dx) as u32,
+                                    (y + dy) as u32,
+                                    &Color(255, 0, 0),
+                                )?;
+                            } else {
+                                shot.set_color(
+                                    (x + dx) as u32,
+                                    (y + dy) as u32,
+                                    &Color(0, 255, 0),
+                                )?;
+                            }
+                        }
+                    }
+                }
+                // if !locked {
+                //     let shot_delay = 100;
+                //     shot.save(&format!("dumps/err_{}_0.png", self.scrolled_rows))?;
+                //     for t in 1..1 {
+                //         utils::sleep(shot_delay);
+                //         shot = capture::capture_absolute_raw_image(&rect)?;
+                //         shot.save(&format!(
+                //             "dumps/err_{}_{}.png",
+                //             self.scrolled_rows,
+                //             t * shot_delay
+                //         ))?;
+                //     }
+                //     // return Err(anyhow!("发现未加锁圣遗物"));
+                // warn!("发现未加锁圣遗物 (row {})", self.scrolled_rows);
+                //     // return Ok(locks);
+                // }
                 locks.push(locked);
             }
         }
         // dump marked screenshot for debug
-        self.create_dumps_folder()?;
-        shot.save(&format!("dumps/lock_{}.png", self.scrolled_rows))?;
+        if self.config.mark {
+            self.create_dumps_folder()?;
+            shot.save(&format!("dumps/lock_{}.png", self.scrolled_rows))?;
+        }
         Ok(locks)
     }
 
@@ -679,6 +684,9 @@ impl YasScanner {
     }
 
     pub fn screenshot_and_mark(&self) -> Result<()> {
+        if !self.config.mark {
+            return Ok(());
+        }
         // take screenshot
         let rect = PixelRect {
             left: self.info.left,
@@ -690,18 +698,18 @@ impl YasScanner {
         // mark
         let mark_color = Color(255, 0, 0);
         let alpha = 0.3;
-        shot.mark(&self.info.panel_position, &mark_color, alpha);
-        shot.mark(&self.info.title_position, &mark_color, alpha);
-        shot.mark(&self.info.main_stat_name_position, &mark_color, alpha);
-        shot.mark(&self.info.main_stat_value_position, &mark_color, alpha);
-        shot.mark(&self.info.sub_stat1_position, &mark_color, alpha);
-        shot.mark(&self.info.sub_stat2_position, &mark_color, alpha);
-        shot.mark(&self.info.sub_stat3_position, &mark_color, alpha);
-        shot.mark(&self.info.sub_stat4_position, &mark_color, alpha);
-        shot.mark(&self.info.level_position, &mark_color, alpha);
-        shot.mark(&self.info.equip_position, &mark_color, alpha);
-        shot.mark(&self.info.art_count_position, &mark_color, alpha);
-        shot.set_color(self.info.menu_x, self.info.menu_y, &mark_color);
+        shot.mark(&self.info.panel_position, &mark_color, alpha)?;
+        shot.mark(&self.info.title_position, &mark_color, alpha)?;
+        shot.mark(&self.info.main_stat_name_position, &mark_color, alpha)?;
+        shot.mark(&self.info.main_stat_value_position, &mark_color, alpha)?;
+        shot.mark(&self.info.sub_stat1_position, &mark_color, alpha)?;
+        shot.mark(&self.info.sub_stat2_position, &mark_color, alpha)?;
+        shot.mark(&self.info.sub_stat3_position, &mark_color, alpha)?;
+        shot.mark(&self.info.sub_stat4_position, &mark_color, alpha)?;
+        shot.mark(&self.info.level_position, &mark_color, alpha)?;
+        shot.mark(&self.info.equip_position, &mark_color, alpha)?;
+        shot.mark(&self.info.art_count_position, &mark_color, alpha)?;
+        shot.set_color(self.info.menu_x, self.info.menu_y, &mark_color)?;
         shot.mark(
             &PixelRectBound {
                 left: self.info.scrollbar_left as i32,
@@ -711,7 +719,7 @@ impl YasScanner {
             },
             &mark_color,
             alpha,
-        );
+        )?;
         // save
         self.create_dumps_folder()?;
         shot.save(&format!(
@@ -722,12 +730,9 @@ impl YasScanner {
     }
 
     pub fn scan(&mut self) -> Result<Vec<InternalArtifact>> {
-        if !self.config.no_check {
-            self.check_menu()?;
-        }
+        self.check_menu()?;
         self.scroll_to_top()?;
         self.get_scroll_speed()?;
-        self.create_dumps_folder()?;
         self.screenshot_and_mark()?;
 
         if self.config.capture_only {
@@ -746,17 +751,6 @@ impl YasScanner {
         } else {
             count % self.col
         };
-
-        // println!("检测到圣遗物数量：{}，若无误请按回车，否则输入正确的圣遗物数量：", count);
-        // let mut s: String = String::new();
-        // stdin().read_line(&mut s);
-        // if s.trim() != "" {
-        //     count = s.trim().parse::<u32>().unwrap();
-        // }
-
-        // info!("detected count: {}", count);
-        // info!("total row: {}", total_row);
-        // info!("last column: {}", last_row_col);
 
         let (tx, rx) = mpsc::channel::<Option<(RawCaptureImage, u32, bool)>>();
         let info_2 = self.info.clone();
@@ -904,9 +898,12 @@ impl YasScanner {
         // self.enigo.mouse_click(MouseButton::Left);
         // utils::sleep(1000);
         // self.sample_initial_color();
+        // let mut now = SystemTime::now();
 
         'outer: while scanned_count < count {
             let locks = self.get_locks(start_row)?;
+            // println!("{} got locks", now.elapsed()?.as_millis());
+            // now = SystemTime::now();
             let mut locks_idx: usize = 0;
             for row in start_row..self.row {
                 let c = if scanned_row == total_row - 1 {
@@ -928,22 +925,28 @@ impl YasScanner {
                     self.move_to(row, col);
                     self.enigo.mouse_click(MouseButton::Left);
 
-                    self.wait_until_switched()?;
+                    let capture = self.wait_until_switched()?;
+                    // println!("{} switched", now.elapsed()?.as_millis());
+                    // now = SystemTime::now();
                     // utils::sleep(80);
 
-                    let capture = self.capture_panel()?;
+                    // let capture = self.capture_panel()?;
+                    // println!("{} captured", now.elapsed()?.as_millis());
+                    // now = SystemTime::now();
 
                     // capture
                     //     .save(&format!("dumps/art_{}.png", scanned_count + 1))
                     //     .expect("save image error");
 
-                    let star = self.get_star()?;
+                    let star = self.get_star(&capture)?;
                     if star < self.config.min_star {
                         break 'outer;
                     }
+
                     // lock = self.get_lock(lock);
                     let lock = locks[locks_idx];
                     locks_idx += 1;
+
                     tx.send(Some((capture, star, lock)))?;
 
                     scanned_count += 1;
@@ -962,13 +965,9 @@ impl YasScanner {
             let remain_row = (remain + self.col - 1) / self.col;
             let scroll_row = remain_row.min(self.row);
             start_row = self.row - scroll_row;
-            match self.scroll_rows(scroll_row) {
-                ScrollResult::TLE => {
-                    return Err(anyhow!("翻页出现问题"));
-                }
-                ScrollResult::Interrupt => break 'outer,
-                _ => (),
-            }
+            self.scroll_rows(scroll_row)?;
+            // println!("{} scrolled", now.elapsed()?.as_millis());
+            // now = SystemTime::now();
 
             // utils::sleep(100);
         }
@@ -982,11 +981,10 @@ impl YasScanner {
         Ok(results)
     }
     pub fn flip_lock(&mut self, indices: Vec<u32>) -> Result<()> {
-        if !self.config.no_check {
-            self.check_menu()?;
-        }
+        self.check_menu()?;
         self.scroll_to_top()?;
         self.get_scroll_speed()?;
+
         let mut indices = indices;
         indices.sort();
 
@@ -1016,11 +1014,7 @@ impl YasScanner {
                 let remain_row = total_row - scanned_row;
                 let scroll_row = remain_row.min(self.row);
                 start_row = self.row - scroll_row;
-                match self.scroll_rows(scroll_row) {
-                    ScrollResult::TLE => return Err(anyhow!("翻页出现问题")),
-                    ScrollResult::Interrupt => break,
-                    _ => (),
-                }
+                self.scroll_rows(scroll_row)?;
                 // 右键终止
                 if utils::is_rmb_down() {
                     break;
@@ -1047,16 +1041,75 @@ impl YasScanner {
         }
         Ok(())
     }
-    pub fn test(&mut self) -> Result<()> {
-        self.check_menu()?;
+    pub fn test(&mut self) -> Result<Vec<bool>> {
         self.scroll_to_top()?;
-        // self.get_scroll_speed();
-        let locks = self.get_locks(0)?;
-        let mut b = true;
-        for l in locks {
-            b = b & l;
+        self.get_scroll_speed()?;
+        self.screenshot_and_mark()?;
+
+        let count = self.config.number;
+
+        let total_row = (count + self.col - 1) / self.col;
+        let last_row_col = if count % self.col == 0 {
+            self.col
+        } else {
+            count % self.col
+        };
+
+        let mut scanned_row = 0_u32;
+        let mut scanned_count = 0_u32;
+        let mut start_row = 0_u32;
+
+        let mut results: Vec<bool> = vec![];
+
+        'outer: while scanned_count < count {
+            let locks = self.get_locks(start_row)?;
+            let mut locks_idx: usize = 0;
+            for row in start_row..self.row {
+                let c = if scanned_row == total_row - 1 {
+                    last_row_col
+                } else {
+                    self.col
+                };
+                for col in 0..c {
+                    // 大于最大数量则退出
+                    if scanned_count > count {
+                        break 'outer;
+                    }
+
+                    // 右键终止
+                    if utils::is_rmb_down() {
+                        break 'outer;
+                    }
+
+                    // let lock = locks[locks_idx];
+                    // results.push(lock);
+                    // locks_idx += 1;
+                    scanned_count += 1;
+                } // end 'col
+
+                // info!("{:?}", locks);
+                scanned_row += 1;
+
+                if scanned_row >= self.config.max_row {
+                    info!("max row reached, quiting...");
+                    break 'outer;
+                }
+            } // end 'row
+
+            self.move_to(0, 1);
+            self.enigo.mouse_click(MouseButton::Left);
+            utils::sleep(500);
+
+            let remain = count - scanned_count;
+            let remain_row = (remain + self.col - 1) / self.col;
+            let scroll_row = remain_row.min(self.row);
+            start_row = self.row - scroll_row;
+            self.scroll_rows(scroll_row)?;
+
+            // utils::sleep(100);
         }
-        // println!("{}", b);
-        Ok(())
+
+        info!("count: {}", results.len());
+        Ok(results)
     }
 }

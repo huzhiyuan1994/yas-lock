@@ -11,7 +11,7 @@ use yas::capture::capture_absolute_image;
 use yas::common::utils;
 use yas::expo::genmo::GenmoFormat;
 use yas::expo::good::GoodFormat;
-use yas::expo::mona_uranai::MonaFormat;
+use yas::expo::mona::MonaFormat;
 use yas::info::info;
 use yas::scanner::yas_scanner::{YasScanner, YasScannerConfig};
 
@@ -170,6 +170,12 @@ fn start() -> Result<()> {
                 .help("只保存截图，不进行扫描，debug专用"),
         )
         .arg(
+            Arg::with_name("mark")
+                .long("mark")
+                .takes_value(false)
+                .help("保存标记后的截图，debug专用"),
+        )
+        .arg(
             Arg::with_name("min-star")
                 .long("min-star")
                 .takes_value(true)
@@ -243,6 +249,13 @@ fn start() -> Result<()> {
                 .takes_value(false)
                 .help("不检测是否已打开背包等"),
         )
+        .arg(
+            Arg::with_name("max-wait-scroll")
+                .long("max-wait-scroll")
+                .takes_value(true)
+                .min_values(0)
+                .help("翻页的最大等待时间(ms)"),
+        )
         .get_matches();
 
     let config = YasScannerConfig::from_match(&matches)?;
@@ -301,6 +314,7 @@ fn start() -> Result<()> {
 
     let mut scanner = YasScanner::new(info.clone(), config)?;
 
+    // let _ = scanner.test()?;
     if lock_mode {
         scanner.flip_lock(indices)?;
     } else {

@@ -1,12 +1,11 @@
 use crate::capture;
 use crate::inference::pre_process::{pre_process, raw_to_img, to_gray, uint8_raw_to_img};
 use crate::info::info::ScanInfo;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use image::{GrayImage, ImageBuffer, ImageResult, RgbImage};
 use log::info;
 use std::time::SystemTime;
 
-pub mod buffer;
 pub mod color;
 pub mod utils;
 
@@ -149,17 +148,33 @@ impl RawCaptureImage {
         // im.to_gray_image().save("test.png");
         im
     }
-    pub fn get_color(&self, x: u32, y: u32) -> Color {
+    pub fn get_color(&self, x: u32, y: u32) -> Result<Color> {
+        if x >= self.w || y >= self.h {
+            return Err(anyhow!("Pixel coord out of bounds"));
+        }
         let p = ((self.h - 1 - y) * self.w + x) as usize * 4;
-        Color(self.data[p + 2], self.data[p + 1], self.data[p])
+        Ok(Color(self.data[p + 2], self.data[p + 1], self.data[p]))
     }
-    pub fn set_color(&mut self, x: u32, y: u32, color: &Color) {
+    pub fn set_color(&mut self, x: u32, y: u32, color: &Color) -> Result<()> {
+        if x >= self.w || y >= self.h {
+            return Err(anyhow!("Pixel coord out of bounds"));
+        }
         let p = ((self.h - 1 - y) * self.w + x) as usize * 4;
         self.data[p + 0] = color.2;
         self.data[p + 1] = color.1;
         self.data[p + 2] = color.0;
+        Ok(())
     }
-    pub fn mark(&mut self, rect: &PixelRectBound, color: &Color, alpha: f64) {
+    pub fn mark(&mut self, rect: &PixelRectBound, color: &Color, alpha: f64) -> Result<()> {
+        if rect.right < rect.left
+            || rect.bottom < rect.top
+            || rect.left < 0
+            || rect.top < 0
+            || rect.right as u32 >= self.w
+            || rect.bottom as u32 >= self.h
+        {
+            return Err(anyhow!("Invalid marking area"));
+        }
         let width = (rect.right - rect.left + 1) as usize;
         let height = (rect.bottom - rect.top + 1) as usize;
         for i in 0..width {
@@ -175,6 +190,7 @@ impl RawCaptureImage {
                     (self.data[p + 2] as f64 * (1.0 - alpha) + color.0 as f64 * alpha) as u8;
             }
         }
+        Ok(())
     }
 }
 
