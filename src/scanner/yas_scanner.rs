@@ -8,13 +8,14 @@ use std::thread;
 use std::time::SystemTime;
 
 use clap::ArgMatches;
+use dxgcap::DXGIManager;
 use enigo::*;
 use log::{error, info, warn};
 
 use crate::artifact::internal_artifact::{
     ArtifactSetKey, ArtifactSlotKey, ArtifactStat, CharacterKey, InternalArtifact,
 };
-use crate::capture::{self, capture_absolute_raw_image};
+use crate::capture;
 use crate::common::color::Color;
 use crate::common::{utils, PixelRect, PixelRectBound, RawCaptureImage};
 use crate::inference::inference::CRNNModel;
@@ -167,6 +168,7 @@ fn eq(x: u8, y: u8, threshold: u8) -> bool {
 pub struct YasScanner {
     model: CRNNModel,
     enigo: Enigo,
+    dxg: DXGIManager,
 
     info: ScanInfo,
     config: YasScannerConfig,
@@ -193,12 +195,19 @@ impl YasScanner {
         let row = info.art_row;
         let col = info.art_col;
 
+        // dxg的第一张截图可能是黑屏
+        let mut dxg = DXGIManager::new(1000).map_err(|s| anyhow!(s))?;
+        dxg.capture_frame()
+            .map_err(|_| anyhow!("dxg capture init err"))?;
+
         Ok(YasScanner {
             model: CRNNModel::new(
                 String::from("model_training.onnx"),
                 String::from("index_2_word.json"),
             )?,
             enigo: Enigo::new(),
+            dxg,
+
             info,
             config,
 
@@ -219,6 +228,34 @@ impl YasScanner {
 }
 
 impl YasScanner {
+    fn capture(&mut self, rect: &PixelRect) -> Result<RawCaptureImage> {
+        let (pixels, (w, h)) = self
+            .dxg
+            .capture_frame()
+            .map_err(|_| anyhow!("dxg capture err"))?;
+
+        let mut im = RawCaptureImage {
+            data: vec![0; (rect.width * rect.height * 4) as usize],
+            w: rect.width as u32,
+            h: rect.height as u32,
+        };
+
+        for x in rect.left..rect.left + rect.width {
+            for y in rect.top..rect.top + rect.height {
+                let p = (y * w as i32 + x) as usize;
+                let pos = ((rect.height - 1 - (y - rect.top)) * rect.width + (x - rect.left))
+                    as usize
+                    * 4;
+                im.data[pos + 0] = pixels[p].b;
+                im.data[pos + 1] = pixels[p].g;
+                im.data[pos + 2] = pixels[p].r;
+                im.data[pos + 3] = pixels[p].a;
+            }
+        }
+
+        Ok(im)
+    }
+
     fn move_to(&mut self, row: u32, col: u32) {
         let info = &self.info;
         let left = info.left
@@ -262,14 +299,14 @@ impl YasScanner {
         Ok(())
     }
 
-    fn get_ruler(&self) -> Result<Vec<u8>> {
+    fn get_ruler(&mut self) -> Result<RawCaptureImage> {
         let rect = PixelRect {
             left: self.info.left + self.info.ruler_left as i32,
             top: self.info.top + self.info.ruler_top as i32,
             width: 1,
             height: self.info.ruler_height as i32,
         };
-        capture::capture_absolute(&rect)
+        self.capture(&rect)
     }
 
     fn check_menu(&self) -> Result<()> {
@@ -290,7 +327,7 @@ impl YasScanner {
             width: 1,
             height: self.info.scrollbar_height as i32,
         };
-        let pixels = capture::capture_absolute(&rect)?;
+        let pixels = self.capture(&rect)?.data;
         // println!("{:?}", pixels);
         let mut offset = 0;
         let mut color_last = pixels[0] as i32 + pixels[1] as i32 + pixels[2] as i32;
@@ -327,7 +364,7 @@ impl YasScanner {
         self.enigo.mouse_click(MouseButton::Left);
         utils::sleep(500);
         // match ruler and ruler_shift to get scroll speed
-        let ruler = self.get_ruler()?;
+        let ruler = self.get_ruler()?.data;
         fs::write("dumps/scroll_0.txt", format!("{:?}", ruler))
             .map_err(|_| anyhow!("fail to write scroll_0.txt"))?;
         // scroll until rulers are matched
@@ -335,7 +372,7 @@ impl YasScanner {
         'scroll: for n_scroll in 1..=5 {
             self.scroll(-1);
             // utils::sleep(400);
-            let ruler_shift = self.get_ruler()?;
+            let ruler_shift = self.get_ruler()?.data;
             fs::write(
                 format!("dumps/scroll_{}.txt", n_scroll),
                 format!("{:?}", ruler_shift),
@@ -414,10 +451,9 @@ impl YasScanner {
             width: self.info.art_width as i32,
             height: self.info.art_height as i32,
         };
-        let mut shot = capture_absolute_raw_image(&rect)?;
         let now = SystemTime::now();
         while now.elapsed()?.as_millis() < self.config.max_wait_scroll as u128 {
-            shot = capture_absolute_raw_image(&rect)?;
+            let shot = self.capture(&rect)?;
             let mut ratio = 0.0;
             for y in 0..(rect.height as u32) {
                 if shot.get_color(5, y)?.eq(&Color(233, 229, 220)) {
@@ -437,6 +473,7 @@ impl YasScanner {
         }
 
         self.create_dumps_folder()?;
+        let shot = self.capture(&rect)?;
         shot.save("dumps/err_scroll.png")?;
         Err(anyhow!("翻页失败 (dumps/err_scroll.png)"))
     }
@@ -445,15 +482,52 @@ impl YasScanner {
         let now = SystemTime::now();
         let mut consecutive_time = 0;
         let mut diff_flag = false;
+        // let mut pools = Vec::new();
         while now.elapsed()?.as_millis() < self.config.max_wait_switch_artifact as u128 {
             // let pool_start = SystemTime::now();
             let shot = self.capture_panel()?;
             let mut pool = 0_f64;
-            for x in self.info.pool_position.left..self.info.pool_position.right {
-                for y in self.info.pool_position.top..self.info.pool_position.bottom {
-                    pool += shot.get_color(x as u32, y as u32)?.2 as f64;
+            for x in 0..self.info.sub_stat1_position.width {
+                for y in 0..self.info.sub_stat1_position.height {
+                    pool += shot
+                        .get_color(
+                            (self.info.sub_stat1_position.left + x) as u32,
+                            (self.info.sub_stat1_position.top + y) as u32,
+                        )?
+                        .1 as f64;
                 }
             }
+            for x in 0..self.info.sub_stat2_position.width {
+                for y in 0..self.info.sub_stat2_position.height {
+                    pool += shot
+                        .get_color(
+                            (self.info.sub_stat2_position.left + x) as u32,
+                            (self.info.sub_stat2_position.top + y) as u32,
+                        )?
+                        .1 as f64;
+                }
+            }
+            for x in 0..self.info.sub_stat3_position.width {
+                for y in 0..self.info.sub_stat3_position.height {
+                    pool += shot
+                        .get_color(
+                            (self.info.sub_stat3_position.left + x) as u32,
+                            (self.info.sub_stat3_position.top + y) as u32,
+                        )?
+                        .1 as f64;
+                }
+            }
+            for x in 0..self.info.sub_stat4_position.width {
+                for y in 0..self.info.sub_stat4_position.height {
+                    pool += shot
+                        .get_color(
+                            (self.info.sub_stat4_position.left + x) as u32,
+                            (self.info.sub_stat4_position.top + y) as u32,
+                        )?
+                        .1 as f64;
+                }
+            }
+            // pools.push(pool);
             // info!("pool: {}", pool);
             // println!("pool time: {}ms", pool_start.elapsed().unwrap().as_millis());
 
@@ -493,23 +567,22 @@ impl YasScanner {
         }
 
         warn!(
-            "Max wait switch artifact exceeded ({} ms)",
-            self.config.max_wait_switch_artifact
+            "圣遗物切换超时 (time: {}ms)",
+            now.elapsed()?.as_millis(),
+            // pools
         );
 
         self.capture_panel()
     }
 
     fn capture_panel(&mut self) -> Result<RawCaptureImage> {
-        let w = self.info.panel_position.right - self.info.panel_position.left;
-        let h = self.info.panel_position.bottom - self.info.panel_position.top;
         let rect: PixelRect = PixelRect {
             left: self.info.left as i32 + self.info.panel_position.left,
             top: self.info.top as i32 + self.info.panel_position.top,
-            width: w,
-            height: h,
+            width: self.info.panel_position.width,
+            height: self.info.panel_position.height,
         };
-        let shot = capture::capture_absolute_raw_image(&rect)?;
+        let shot = self.capture(&rect)?;
         // info!("capture time: {}ms", now.elapsed().unwrap().as_millis());
         Ok(shot)
     }
@@ -561,7 +634,7 @@ impl YasScanner {
             width: self.info.width as i32,
             height: self.info.height as i32,
         };
-        let mut shot = capture_absolute_raw_image(&rect)?;
+        let mut shot = self.capture(&rect)?;
         let mut locks: Vec<bool> = Vec::new();
         let info = &self.info;
         for row in start_row..self.row {
@@ -636,54 +709,41 @@ impl YasScanner {
         let count = self.info.art_count_position.capture_relative(info)?;
         count.to_gray_image().save("captures/count.png")?;
 
-        let convert_rect = |rect: &PixelRectBound| PixelRect {
-            left: rect.left - info.panel_position.left,
-            top: rect.top - info.panel_position.top,
-            width: rect.right - rect.left,
-            height: rect.bottom - rect.top,
-        };
-
         let panel = self.capture_panel()?;
-        let im_title = pre_process(panel.crop_to_raw_img(&convert_rect(&info.title_position)));
+        let im_title = pre_process(panel.crop_to_raw_img(&info.title_position));
         im_title.to_gray_image().save("captures/title.png")?;
-        let im_main_stat_name =
-            pre_process(panel.crop_to_raw_img(&convert_rect(&info.main_stat_name_position)));
+        let im_main_stat_name = pre_process(panel.crop_to_raw_img(&info.main_stat_name_position));
         im_main_stat_name
             .to_gray_image()
             .save("captures/main_stat_name.png")?;
-        let im_main_stat_value =
-            pre_process(panel.crop_to_raw_img(&convert_rect(&info.main_stat_value_position)));
+        let im_main_stat_value = pre_process(panel.crop_to_raw_img(&info.main_stat_value_position));
         im_main_stat_value
             .to_gray_image()
             .save("captures/main_stat_value.png")?;
-        let im_sub_stat_1 =
-            pre_process(panel.crop_to_raw_img(&convert_rect(&info.sub_stat1_position)));
+        let im_sub_stat_1 = pre_process(panel.crop_to_raw_img(&info.sub_stat1_position));
         im_sub_stat_1
             .to_gray_image()
             .save("captures/sub_stat_1.png")?;
-        let im_sub_stat_2 =
-            pre_process(panel.crop_to_raw_img(&convert_rect(&info.sub_stat2_position)));
+        let im_sub_stat_2 = pre_process(panel.crop_to_raw_img(&info.sub_stat2_position));
         im_sub_stat_2
             .to_gray_image()
             .save("captures/sub_stat_2.png")?;
-        let im_sub_stat_3 =
-            pre_process(panel.crop_to_raw_img(&convert_rect(&info.sub_stat3_position)));
+        let im_sub_stat_3 = pre_process(panel.crop_to_raw_img(&info.sub_stat3_position));
         im_sub_stat_3
             .to_gray_image()
             .save("captures/sub_stat_3.png")?;
-        let im_sub_stat_4 =
-            pre_process(panel.crop_to_raw_img(&convert_rect(&info.sub_stat4_position)));
+        let im_sub_stat_4 = pre_process(panel.crop_to_raw_img(&info.sub_stat4_position));
         im_sub_stat_4
             .to_gray_image()
             .save("captures/sub_stat_4.png")?;
-        let im_level = pre_process(panel.crop_to_raw_img(&convert_rect(&info.level_position)));
+        let im_level = pre_process(panel.crop_to_raw_img(&info.level_position));
         im_level.to_gray_image().save("captures/level.png")?;
-        let im_equip = pre_process(panel.crop_to_raw_img(&convert_rect(&info.equip_position)));
+        let im_equip = pre_process(panel.crop_to_raw_img(&info.equip_position));
         im_equip.to_gray_image().save("captures/equip.png")?;
         Ok(())
     }
 
-    pub fn screenshot_and_mark(&self) -> Result<()> {
+    pub fn screenshot_and_mark(&mut self) -> Result<()> {
         if !self.config.mark {
             return Ok(());
         }
@@ -694,32 +754,32 @@ impl YasScanner {
             width: self.info.width as i32,
             height: self.info.height as i32,
         };
-        let mut shot = capture_absolute_raw_image(&rect)?;
-        // mark
-        let mark_color = Color(255, 0, 0);
-        let alpha = 0.3;
-        shot.mark(&self.info.panel_position, &mark_color, alpha)?;
-        shot.mark(&self.info.title_position, &mark_color, alpha)?;
-        shot.mark(&self.info.main_stat_name_position, &mark_color, alpha)?;
-        shot.mark(&self.info.main_stat_value_position, &mark_color, alpha)?;
-        shot.mark(&self.info.sub_stat1_position, &mark_color, alpha)?;
-        shot.mark(&self.info.sub_stat2_position, &mark_color, alpha)?;
-        shot.mark(&self.info.sub_stat3_position, &mark_color, alpha)?;
-        shot.mark(&self.info.sub_stat4_position, &mark_color, alpha)?;
-        shot.mark(&self.info.level_position, &mark_color, alpha)?;
-        shot.mark(&self.info.equip_position, &mark_color, alpha)?;
-        shot.mark(&self.info.art_count_position, &mark_color, alpha)?;
-        shot.set_color(self.info.menu_x, self.info.menu_y, &mark_color)?;
-        shot.mark(
-            &PixelRectBound {
-                left: self.info.scrollbar_left as i32,
-                top: self.info.scrollbar_top as i32,
-                right: self.info.scrollbar_left as i32,
-                bottom: self.info.scrollbar_top as i32 + self.info.scrollbar_height as i32,
-            },
-            &mark_color,
-            alpha,
-        )?;
+        let shot = self.capture(&rect)?;
+        // // mark
+        // let mark_color = Color(255, 0, 0);
+        // let alpha = 0.3;
+        // shot.mark(&self.info.panel_position, &mark_color, alpha)?;
+        // shot.mark(&self.info.title_position, &mark_color, alpha)?;
+        // shot.mark(&self.info.main_stat_name_position, &mark_color, alpha)?;
+        // shot.mark(&self.info.main_stat_value_position, &mark_color, alpha)?;
+        // shot.mark(&self.info.sub_stat1_position, &mark_color, alpha)?;
+        // shot.mark(&self.info.sub_stat2_position, &mark_color, alpha)?;
+        // shot.mark(&self.info.sub_stat3_position, &mark_color, alpha)?;
+        // shot.mark(&self.info.sub_stat4_position, &mark_color, alpha)?;
+        // shot.mark(&self.info.level_position, &mark_color, alpha)?;
+        // shot.mark(&self.info.equip_position, &mark_color, alpha)?;
+        // shot.mark(&self.info.art_count_position, &mark_color, alpha)?;
+        // shot.set_color(self.info.menu_x, self.info.menu_y, &mark_color)?;
+        // shot.mark(
+        //     &PixelRect {
+        //         left: self.info.scrollbar_left as i32,
+        //         top: self.info.scrollbar_top as i32,
+        //         width: 1,
+        //         height: self.info.scrollbar_height as i32,
+        //     },
+        //     &mark_color,
+        //     alpha,
+        // )?;
         // save
         self.create_dumps_folder()?;
         shot.save(&format!(
@@ -775,13 +835,6 @@ impl YasScanner {
                 fs::create_dir("dumps")?;
             }
 
-            let convert_rect = |rect: &PixelRectBound| PixelRect {
-                left: rect.left - info.panel_position.left,
-                top: rect.top - info.panel_position.top,
-                width: rect.right - rect.left,
-                height: rect.bottom - rect.top,
-            };
-
             for i in rx {
                 let (capture, rarity, lock) = match i {
                     Some(v) => v,
@@ -789,33 +842,32 @@ impl YasScanner {
                 };
                 // let now = SystemTime::now();
 
-                let model_inference =
-                    |pos: &PixelRectBound, name: &str, cnt: i32| -> Result<String> {
-                        let raw_img = capture.crop_to_raw_img(&convert_rect(pos));
-                        if is_dump_mode {
-                            raw_img
-                                .grayscale_to_gray_image()
-                                .save(format!("dumps/{}_{}.png", name, cnt))?;
-                        }
+                let model_inference = |pos: &PixelRect, name: &str, cnt: i32| -> Result<String> {
+                    let raw_img = capture.crop_to_raw_img(&pos);
+                    if is_dump_mode {
+                        raw_img
+                            .grayscale_to_gray_image()
+                            .save(format!("dumps/{}_{}.png", name, cnt))?;
+                    }
 
-                        let processed_img = pre_process(raw_img);
+                    let processed_img = pre_process(raw_img);
 
-                        if processed_img.w == 0 || processed_img.h == 0 {
-                            return Ok(String::from(""));
-                        }
+                    if processed_img.w == 0 || processed_img.h == 0 {
+                        return Ok(String::from(""));
+                    }
 
-                        if is_dump_mode {
-                            processed_img
-                                .to_gray_image()
-                                .save(format!("dumps/p_{}_{}.png", name, cnt))?;
-                        }
-                        let inference_result = model.inference_string(&processed_img)?;
-                        if is_dump_mode {
-                            fs::write(format!("dumps/{}_{}.txt", name, cnt), &inference_result)?;
-                        }
+                    if is_dump_mode {
+                        processed_img
+                            .to_gray_image()
+                            .save(format!("dumps/p_{}_{}.png", name, cnt))?;
+                    }
+                    let inference_result = model.inference_string(&processed_img)?;
+                    if is_dump_mode {
+                        fs::write(format!("dumps/{}_{}.txt", name, cnt), &inference_result)?;
+                    }
 
-                        Ok(inference_result)
-                    };
+                    Ok(inference_result)
+                };
 
                 let str_title = model_inference(&info.title_position, "title", cnt)?;
                 let str_main_stat_name =

@@ -11,7 +11,7 @@ pub mod utils;
 
 use color::Color;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct PixelRect {
     pub left: i32,
     pub top: i32,
@@ -25,6 +25,22 @@ impl PixelRect {
         self.top = (self.top as f64 * ratio).round() as i32;
         self.width = (self.width as f64 * ratio).round() as i32;
         self.height = (self.height as f64 * ratio).round() as i32;
+    }
+    pub fn shifted(rect: &PixelRect, shift_x: i32, shift_y: i32) -> PixelRect {
+        PixelRect {
+            left: rect.left + shift_x,
+            top: rect.top + shift_y,
+            width: rect.width,
+            height: rect.height,
+        }
+    }
+    pub fn to_bound(&self) -> PixelRectBound {
+        PixelRectBound {
+            left: self.left,
+            top: self.top,
+            right: self.left + self.width,
+            bottom: self.top + self.height,
+        }
     }
 }
 
@@ -165,20 +181,18 @@ impl RawCaptureImage {
         self.data[p + 2] = color.0;
         Ok(())
     }
-    pub fn mark(&mut self, rect: &PixelRectBound, color: &Color, alpha: f64) -> Result<()> {
-        if rect.right < rect.left
-            || rect.bottom < rect.top
+    pub fn mark(&mut self, rect: &PixelRect, color: &Color, alpha: f64) -> Result<()> {
+        if rect.width < 0
+            || rect.height < 0
             || rect.left < 0
             || rect.top < 0
-            || rect.right as u32 >= self.w
-            || rect.bottom as u32 >= self.h
+            || rect.left + rect.width >= self.w as i32
+            || rect.top + rect.height >= self.h as i32
         {
             return Err(anyhow!("Invalid marking area"));
         }
-        let width = (rect.right - rect.left + 1) as usize;
-        let height = (rect.bottom - rect.top + 1) as usize;
-        for i in 0..width {
-            for j in 0..height {
+        for i in 0..rect.width {
+            for j in 0..rect.height {
                 let x = rect.left as u32 + i as u32;
                 let y = rect.top as u32 + j as u32;
                 let p = ((self.h - 1 - y) * self.w + x) as usize * 4;

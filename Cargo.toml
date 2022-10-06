@@ -21,6 +21,7 @@ strum = "0.24"
 strum_macros = "0.24"
 rand = "0.8.5"
 anyhow = "*"
+dxgcap = "*"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["winuser", "winbase", "wingdi", "winnt", "securitybaseapi", "libloaderapi"] }
