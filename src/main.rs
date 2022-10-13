@@ -256,6 +256,12 @@ fn start() -> Result<()> {
                 .min_values(0)
                 .help("翻页的最大等待时间(ms)"),
         )
+        .arg(
+            Arg::with_name("dxgcap")
+                .long("dxgcap")
+                .takes_value(false)
+                .help("使用dxgcap捕获屏幕"),
+        )
         .get_matches();
 
     let config = YasScannerConfig::from_match(&matches)?;

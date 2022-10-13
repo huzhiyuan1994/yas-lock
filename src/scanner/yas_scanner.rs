@@ -15,7 +15,7 @@ use log::{error, info, warn};
 use crate::artifact::internal_artifact::{
     ArtifactSetKey, ArtifactSlotKey, ArtifactStat, CharacterKey, InternalArtifact,
 };
-use crate::capture;
+use crate::capture::{self, capture_absolute_raw_image};
 use crate::common::color::Color;
 use crate::common::{utils, PixelRect, RawCaptureImage};
 use crate::inference::inference::CRNNModel;
@@ -36,6 +36,7 @@ pub struct YasScannerConfig {
     no_check: bool,
     max_wait_scroll: u32,
     mark: bool,
+    dxgcap: bool,
 }
 
 impl YasScannerConfig {
@@ -69,6 +70,7 @@ impl YasScannerConfig {
                 .value_of("max-wait-scroll")
                 .unwrap_or("0")
                 .parse::<u32>()?,
+            dxgcap: matches.is_present("dxgcap"),
         })
     }
 }
@@ -186,8 +188,10 @@ impl YasScanner {
 
         // dxg的第一张截图可能是黑屏
         let mut dxg = DXGIManager::new(1000).map_err(|s| anyhow!(s))?;
-        dxg.capture_frame()
-            .map_err(|_| anyhow!("dxg capture init err"))?;
+        if config.dxgcap {
+            dxg.capture_frame()
+                .map_err(|e| anyhow!("dxg capture init err: {:?}", e))?;
+        }
 
         Ok(YasScanner {
             model: CRNNModel::new(
@@ -218,31 +222,34 @@ impl YasScanner {
 
 impl YasScanner {
     fn capture(&mut self, rect: &PixelRect) -> Result<RawCaptureImage> {
-        let (pixels, (w, _)) = self
-            .dxg
-            .capture_frame()
-            .map_err(|_| anyhow!("dxg capture err"))?;
+        if self.config.dxgcap {
+            let (pixels, (w, _)) = self
+                .dxg
+                .capture_frame()
+                .map_err(|e| anyhow!("dxg capture err: {:?}", e))?;
 
-        let mut im = RawCaptureImage {
-            data: vec![0; (rect.width * rect.height * 4) as usize],
-            w: rect.width as u32,
-            h: rect.height as u32,
-        };
+            let mut im = RawCaptureImage {
+                data: vec![0; (rect.width * rect.height * 4) as usize],
+                w: rect.width as u32,
+                h: rect.height as u32,
+            };
 
-        for x in rect.left..rect.left + rect.width {
-            for y in rect.top..rect.top + rect.height {
-                let p = (y * w as i32 + x) as usize;
-                let pos = ((rect.height - 1 - (y - rect.top)) * rect.width + (x - rect.left))
-                    as usize
-                    * 4;
-                im.data[pos + 0] = pixels[p].b;
-                im.data[pos + 1] = pixels[p].g;
-                im.data[pos + 2] = pixels[p].r;
-                im.data[pos + 3] = pixels[p].a;
+            for x in rect.left..rect.left + rect.width {
+                for y in rect.top..rect.top + rect.height {
+                    let p = (y * w as i32 + x) as usize;
+                    let pos = ((rect.height - 1 - (y - rect.top)) * rect.width + (x - rect.left))
+                        as usize
+                        * 4;
+                    im.data[pos + 0] = pixels[p].b;
+                    im.data[pos + 1] = pixels[p].g;
+                    im.data[pos + 2] = pixels[p].r;
+                    im.data[pos + 3] = pixels[p].a;
+                }
             }
+            return Ok(im);
         }
 
-        Ok(im)
+        capture_absolute_raw_image(&rect)
     }
 
     fn move_to(&mut self, row: u32, col: u32) {
@@ -523,7 +530,11 @@ impl YasScanner {
             }
             // pools.push(pool);
             // info!("pool: {}", pool);
-            // println!("pool time: {}ms", pool_start.elapsed().unwrap().as_millis());
+            // println!(
+            //     "pool: {}, time: {}ms",
+            //     pool,
+            //     pool_start.elapsed().unwrap().as_millis()
+            // );
 
             if (pool - self.pool).abs() > 0.000001 {
                 // info!("pool: {}", pool);
@@ -947,7 +958,7 @@ impl YasScanner {
 
         'outer: while scanned_count < count {
             let locks = self.get_locks(start_row)?;
-            // println!("{} got locks", now.elapsed()?.as_millis());
+            // println!("{}ms got locks", now.elapsed()?.as_millis());
             // now = SystemTime::now();
             let mut locks_idx: usize = 0;
             for row in start_row..self.row {
@@ -971,7 +982,7 @@ impl YasScanner {
                     self.enigo.mouse_click(MouseButton::Left);
 
                     let capture = self.wait_until_switched()?;
-                    // println!("{} switched", now.elapsed()?.as_millis());
+                    // println!("{}ms switched", now.elapsed()?.as_millis());
                     // now = SystemTime::now();
                     // utils::sleep(80);
 
@@ -1011,7 +1022,7 @@ impl YasScanner {
             let scroll_row = remain_row.min(self.row);
             start_row = self.row - scroll_row;
             self.scroll_rows(scroll_row)?;
-            // println!("{} scrolled", now.elapsed()?.as_millis());
+            // println!("{}ms scrolled", now.elapsed()?.as_millis());
             // now = SystemTime::now();
 
             // utils::sleep(100);
