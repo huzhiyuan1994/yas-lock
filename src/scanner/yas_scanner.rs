@@ -159,7 +159,7 @@ fn eq(x: u8, y: u8, threshold: u8) -> bool {
 pub struct YasScanner {
     model: CRNNModel,
     enigo: Enigo,
-    dxg: DXGIManager,
+    dxg: Option<DXGIManager>,
 
     info: ScanInfo,
     config: YasScannerConfig,
@@ -186,10 +186,13 @@ impl YasScanner {
         let row = info.art_row;
         let col = info.art_col;
 
-        // dxg的第一张截图可能是黑屏
-        let mut dxg = DXGIManager::new(1000).map_err(|s| anyhow!(s))?;
+        let mut dxg = None;
         if config.dxgcap {
-            dxg.capture_frame()
+            dxg = Some(DXGIManager::new(1000).map_err(|s| anyhow!(s))?);
+            // dxg的第一张截图可能是黑屏
+            dxg.as_mut()
+                .unwrap()
+                .capture_frame()
                 .map_err(|e| anyhow!("dxg capture init err: {:?}", e))?;
         }
 
@@ -225,6 +228,8 @@ impl YasScanner {
         if self.config.dxgcap {
             let (pixels, (w, _)) = self
                 .dxg
+                .as_mut()
+                .unwrap()
                 .capture_frame()
                 .map_err(|e| anyhow!("dxg capture err: {:?}", e))?;
 

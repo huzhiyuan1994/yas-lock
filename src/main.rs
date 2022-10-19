@@ -358,7 +358,7 @@ fn start() -> Result<()> {
 fn main() {
     Builder::new().filter_level(LevelFilter::Info).init();
 
-    start().unwrap_or_else(|e| error!("{}", e.to_string()));
+    start().unwrap_or_else(|e| error!("{:#}", e));
 
     info!("按Enter退出");
     let mut s = String::new();
