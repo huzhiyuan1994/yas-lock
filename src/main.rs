@@ -180,8 +180,7 @@ fn start() -> Result<()> {
                 .long("min-star")
                 .takes_value(true)
                 .help("最小星级")
-                .min_values(1)
-                .max_values(5),
+                .possible_values(&["1", "2", "3", "4", "5"]),
         )
         .arg(
             Arg::with_name("min-level")
@@ -193,7 +192,13 @@ fn start() -> Result<()> {
             Arg::with_name("max-wait-switch-artifact")
                 .long("max-wait-switch-artifact")
                 .takes_value(true)
-                .min_values(10)
+                .validator(|t| -> Result<(), String> {
+                    if t.parse::<u32>().map_err(|_| String::from("expect int"))? >= 10 {
+                        Ok(())
+                    } else {
+                        Err(String::from("min value: 10"))
+                    }
+                })
                 .help("切换圣遗物最大等待时间(ms)"),
         )
         .arg(
@@ -215,8 +220,14 @@ fn start() -> Result<()> {
                 .long("number")
                 .takes_value(true)
                 .help("指定圣遗物数量（在自动识别数量不准确时使用）")
-                .min_values(1)
-                .max_values(1500),
+                .validator(|n| -> Result<(), String> {
+                    let n = n.parse::<u32>().map_err(|_| String::from("expect int"))?;
+                    if n >= 1 && n <= 1500 {
+                        Ok(())
+                    } else {
+                        Err(String::from("min value: 1, max value: 1500"))
+                    }
+                }),
         )
         .arg(
             Arg::with_name("verbose")
@@ -240,8 +251,7 @@ fn start() -> Result<()> {
                 .long("speed")
                 .takes_value(true)
                 .help("速度（共1-5档，默认5，如提示大量重复尝试降低速度）")
-                .min_values(1)
-                .max_values(5),
+                .possible_values(&["1", "2", "3", "4", "5"]),
         )
         .arg(
             Arg::with_name("no-check")
@@ -253,7 +263,6 @@ fn start() -> Result<()> {
             Arg::with_name("max-wait-scroll")
                 .long("max-wait-scroll")
                 .takes_value(true)
-                .min_values(0)
                 .help("翻页的最大等待时间(ms)"),
         )
         .arg(
