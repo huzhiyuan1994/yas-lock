@@ -169,8 +169,6 @@ pub struct YasScanner {
 
     pool: f64,
 
-    initial_color: Color,
-
     // for scrolls
     scrolled_rows: u32,
 
@@ -211,7 +209,6 @@ impl YasScanner {
             col,
 
             pool: -1.0,
-            initial_color: Color::new(),
             scrolled_rows: 0,
 
             avg_switch_time: 0.0,
@@ -291,15 +288,6 @@ impl YasScanner {
         Ok(color)
     }
 
-    fn get_flag_color(&self) -> Result<Color> {
-        self.get_color(self.info.flag_x, self.info.flag_y)
-    }
-
-    fn sample_initial_color(&mut self) -> Result<()> {
-        self.initial_color = self.get_flag_color()?;
-        Ok(())
-    }
-
     fn get_ruler(&mut self) -> Result<RawCaptureImage> {
         let rect = PixelRect {
             left: self.info.left + self.info.ruler_left as i32,
@@ -308,6 +296,51 @@ impl YasScanner {
             height: self.info.ruler_height as i32,
         };
         self.capture(&rect)
+    }
+
+    fn get_pool(&mut self, shot: &RawCaptureImage) -> Result<f64> {
+        let mut pool = 0_f64;
+        for x in 0..self.info.sub_stat1_position.width {
+            for y in 0..self.info.sub_stat1_position.height {
+                pool += shot
+                    .get_color(
+                        (self.info.sub_stat1_position.left + x) as u32,
+                        (self.info.sub_stat1_position.top + y) as u32,
+                    )?
+                    .1 as f64;
+            }
+        }
+        for x in 0..self.info.sub_stat2_position.width {
+            for y in 0..self.info.sub_stat2_position.height {
+                pool += shot
+                    .get_color(
+                        (self.info.sub_stat2_position.left + x) as u32,
+                        (self.info.sub_stat2_position.top + y) as u32,
+                    )?
+                    .1 as f64;
+            }
+        }
+        for x in 0..self.info.sub_stat3_position.width {
+            for y in 0..self.info.sub_stat3_position.height {
+                pool += shot
+                    .get_color(
+                        (self.info.sub_stat3_position.left + x) as u32,
+                        (self.info.sub_stat3_position.top + y) as u32,
+                    )?
+                    .1 as f64;
+            }
+        }
+        for x in 0..self.info.sub_stat4_position.width {
+            for y in 0..self.info.sub_stat4_position.height {
+                pool += shot
+                    .get_color(
+                        (self.info.sub_stat4_position.left + x) as u32,
+                        (self.info.sub_stat4_position.top + y) as u32,
+                    )?
+                    .1 as f64;
+            }
+        }
+        Ok(pool)
     }
 
     fn check_menu(&self) -> Result<()> {
@@ -492,47 +525,7 @@ impl YasScanner {
         while now.elapsed()?.as_millis() < self.config.max_wait_switch_artifact as u128 {
             // let pool_start = SystemTime::now();
             let shot = self.capture_panel()?;
-            let mut pool = 0_f64;
-            for x in 0..self.info.sub_stat1_position.width {
-                for y in 0..self.info.sub_stat1_position.height {
-                    pool += shot
-                        .get_color(
-                            (self.info.sub_stat1_position.left + x) as u32,
-                            (self.info.sub_stat1_position.top + y) as u32,
-                        )?
-                        .1 as f64;
-                }
-            }
-            for x in 0..self.info.sub_stat2_position.width {
-                for y in 0..self.info.sub_stat2_position.height {
-                    pool += shot
-                        .get_color(
-                            (self.info.sub_stat2_position.left + x) as u32,
-                            (self.info.sub_stat2_position.top + y) as u32,
-                        )?
-                        .1 as f64;
-                }
-            }
-            for x in 0..self.info.sub_stat3_position.width {
-                for y in 0..self.info.sub_stat3_position.height {
-                    pool += shot
-                        .get_color(
-                            (self.info.sub_stat3_position.left + x) as u32,
-                            (self.info.sub_stat3_position.top + y) as u32,
-                        )?
-                        .1 as f64;
-                }
-            }
-            for x in 0..self.info.sub_stat4_position.width {
-                for y in 0..self.info.sub_stat4_position.height {
-                    pool += shot
-                        .get_color(
-                            (self.info.sub_stat4_position.left + x) as u32,
-                            (self.info.sub_stat4_position.top + y) as u32,
-                        )?
-                        .1 as f64;
-                }
-            }
+            let pool = self.get_pool(&shot)?;
             // pools.push(pool);
             // info!("pool: {}", pool);
             // println!(
@@ -1056,16 +1049,17 @@ impl YasScanner {
         if indices[indices.len() - 1] > count {
             return Err(anyhow!("指标超出范围"));
         }
-        self.sample_initial_color()?;
 
         let total_row = (count + self.col - 1) / self.col;
         let mut scanned_row = 0_u32;
         let mut start_row = 0_u32;
 
-        // self.move_to(0, 0);
-        // self.enigo.mouse_click(MouseButton::Left);
-        // utils::sleep(1000);
-        // self.sample_initial_color();
+        // 如果不给第一个圣遗物加解锁，必须记录它的pool值
+        // 以免wait_until_switched出错
+        if indices.len() > 0 && indices[0] != 0 {
+            let shot = self.capture_panel()?;
+            self.pool = self.get_pool(&shot)?;
+        }
 
         for index in indices {
             let row: u32 = index / self.col;
