@@ -6,11 +6,13 @@ use std::path::Path;
 use std::sync::mpsc;
 use std::thread;
 use std::time::SystemTime;
+// use tract_onnx::tract_core::downcast_rs::Downcast;
 
 use clap::ArgMatches;
 use dxgcap::DXGIManager;
 use enigo::*;
 use log::{error, info, warn};
+use serde::{Deserialize, Serialize};
 
 use crate::artifact::internal_artifact::{
     ArtifactSetKey, ArtifactSlotKey, ArtifactStat, CharacterKey, InternalArtifact,
@@ -22,6 +24,7 @@ use crate::inference::inference::CRNNModel;
 use crate::inference::pre_process::pre_process;
 use crate::info::info::ScanInfo;
 
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct YasScannerConfig {
     max_row: u32,
     capture_only: bool,
@@ -42,35 +45,20 @@ pub struct YasScannerConfig {
 impl YasScannerConfig {
     pub fn from_match(matches: &ArgMatches) -> Result<YasScannerConfig> {
         Ok(YasScannerConfig {
-            max_row: matches
-                .value_of("max-row")
-                .unwrap_or("1000")
-                .parse::<u32>()?,
-            capture_only: matches.is_present("capture-only"),
-            dump_mode: matches.is_present("dump"),
-            mark: matches.is_present("mark"),
-            min_star: matches.value_of("min-star").unwrap_or("5").parse::<u32>()?,
-            min_level: matches
-                .value_of("min-level")
-                .unwrap_or("0")
-                .parse::<u32>()?,
-            max_wait_switch_artifact: matches
-                .value_of("max-wait-switch-artifact")
-                .unwrap_or("800")
-                .parse::<u32>()?,
-            scroll_stop: matches
-                .value_of("scroll-stop")
-                .unwrap_or("100")
-                .parse::<u32>()?,
-            number: matches.value_of("number").unwrap_or("0").parse::<u32>()?,
-            verbose: matches.is_present("verbose"),
-            speed: matches.value_of("speed").unwrap_or("5").parse::<u32>()?,
-            no_check: matches.is_present("no-check"),
-            max_wait_scroll: matches
-                .value_of("max-wait-scroll")
-                .unwrap_or("0")
-                .parse::<u32>()?,
-            dxgcap: matches.is_present("dxgcap"),
+            max_row: *matches.get_one("max-row").unwrap(),
+            capture_only: matches.get_flag("capture-only"),
+            dump_mode: matches.get_flag("dump"),
+            mark: matches.get_flag("mark"),
+            min_star: *matches.get_one("min-star").unwrap(),
+            min_level: *matches.get_one("min-level").unwrap(),
+            max_wait_switch_artifact: *matches.get_one("max-wait-switch-artifact").unwrap(),
+            scroll_stop: *matches.get_one("scroll-stop").unwrap(),
+            number: *matches.get_one("number").unwrap(),
+            verbose: matches.get_flag("verbose"),
+            speed: *matches.get_one("speed").unwrap(),
+            no_check: matches.get_flag("no-check"),
+            max_wait_scroll: *matches.get_one("max-wait-scroll").unwrap(),
+            dxgcap: matches.get_flag("dxgcap"),
         })
     }
 }

@@ -1,0 +1,8 @@
+{
+    "cmd": "LockReq",
+    "data": {
+        "argv": [
+            "--no-check"
+        ]
+    }
+}

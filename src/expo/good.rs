@@ -152,11 +152,4 @@ impl<'a> GoodFormat<'a> {
             artifacts,
         }
     }
-
-    pub fn save(&self, path: String) -> Result<()> {
-        let mut file = File::create(&path)?;
-        let s = serde_json::to_string(&self)?;
-        file.write_all(s.as_bytes())?;
-        Ok(())
-    }
 }

@@ -149,11 +149,13 @@ impl<'a> GenmoFormat<'a> {
             .collect();
         GenmoFormat { artifacts }
     }
+}
 
-    pub fn save(&self, path: String) -> Result<()> {
-        let mut file = File::create(&path)?;
-        let s = serde_json::to_string(&self.artifacts)?;
-        file.write_all(s.as_bytes())?;
-        Ok(())
+impl<'a> Serialize for GenmoFormat<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_some(&self.artifacts)
     }
 }
