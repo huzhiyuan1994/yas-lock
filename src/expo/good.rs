@@ -1,7 +1,5 @@
 use anyhow::Result;
 use std::convert::From;
-use std::fs::File;
-use std::io::prelude::*;
 
 use serde::ser::{Serialize, SerializeMap, Serializer};
 

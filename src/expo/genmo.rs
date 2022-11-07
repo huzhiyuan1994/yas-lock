@@ -3,8 +3,6 @@ use crate::artifact::internal_artifact::{
 };
 use anyhow::Result;
 use serde::ser::{Serialize, SerializeMap, Serializer};
-use std::fs::File;
-use std::io::prelude::*;
 
 struct GenmoArtifact<'a> {
     artifact: &'a InternalArtifact,

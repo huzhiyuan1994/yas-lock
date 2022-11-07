@@ -1,13 +1,17 @@
-use anyhow::{anyhow, Context, Result};
-use serde::Serialize;
+use anyhow::{anyhow, Result};
 use std::fs::File;
 use std::io::stdin;
 use std::io::stdout;
 use std::io::BufReader;
 use std::io::Write;
+use std::net::TcpStream;
 use std::path::Path;
 use std::time::SystemTime;
+use tungstenite::WebSocket;
+use yas::artifact::internal_artifact::InternalArtifact;
 use yas::ws::packet::ConfigNotifyData;
+use yas::ws::packet::LockRspData;
+use yas::ws::packet::ScanRspData;
 
 use yas::capture::capture_absolute_image;
 use yas::common::utils;
@@ -16,7 +20,7 @@ use yas::expo::good::GoodFormat;
 use yas::expo::mona::MonaFormat;
 use yas::info::info;
 use yas::scanner::yas_scanner::{YasScanner, YasScannerConfig};
-use yas::ws::packet::{Packet, ScanReqData};
+use yas::ws::packet::Packet;
 
 use clap::{arg, value_parser, ArgMatches, Command};
 use env_logger::Builder;
@@ -50,22 +54,62 @@ fn get_cli() -> Command {
     Command::new("YAS-lock - 原神圣遗物导出&加解锁")
         .version("v1.0.8-beta4")
         .author("wormtql <584130248@qq.com>, ideles <pyjy@yahoo.com>")
-        .arg(arg!(--"max-row" <ROW> "最大扫描行数").default_value("1000").value_parser(value_parser!(u32)))
+        .arg(
+            arg!(--"max-row" <ROW> "最大扫描行数")
+                .default_value("1000")
+                .value_parser(value_parser!(u32)),
+        )
         .arg(arg!(--"dump" "输出模型预测结果、二值化图像和灰度图像，debug专用"))
         .arg(arg!(--"capture-only" "只保存截图，不进行扫描，debug专用"))
         .arg(arg!(--"mark" "保存标记后的截图，debug专用"))
-        .arg(arg!(--"min-star" <STAR> "最小星级（默认5）").default_value("5").value_parser(value_parser!(u32)))
-        .arg(arg!(--"min-level" <LEVEL> "最小等级（默认0）").default_value("0").value_parser(value_parser!(u32)))
-        .arg(arg!(--"max-wait-switch-artifact" <TIME> "切换圣遗物最大等待时间(ms)（默认800）").default_value("800").value_parser(value_parser!(u32)))
-        .arg(arg!(--"output-dir" -o <DIR> "输出目录（默认.)").default_value("."))
-        .arg(arg!(--"scroll-stop" <TIME> "翻页时滚轮停顿时间（ms）（翻页不正确可以考虑加大该选项，默认为100）").default_value("100").value_parser(value_parser!(u32)))
-        .arg(arg!(--"number" <NUM> "指定圣遗物数量（在自动识别数量不准确时使用，默认0，即自动检测）").default_value("0").value_parser(value_parser!(u32)))
+        .arg(
+            arg!(--"min-star" <STAR> "最小星级")
+                .default_value("5")
+                .value_parser(value_parser!(u32)),
+        )
+        .arg(
+            arg!(--"min-level" <LEVEL> "最小等级")
+                .default_value("0")
+                .value_parser(value_parser!(u32)),
+        )
+        .arg(
+            arg!(--"max-wait-switch-artifact" <TIME> "切换圣遗物最大等待时间(ms)")
+                .default_value("800")
+                .value_parser(value_parser!(u32)),
+        )
+        .arg(arg!(--"output-dir" -o <DIR> "输出目录").default_value("."))
+        .arg(
+            arg!(--"scroll-stop" <TIME> "翻页时滚轮停顿时间（ms）（翻页不正确可以考虑加大该选项）")
+                .default_value("100")
+                .value_parser(value_parser!(u32)),
+        )
+        .arg(
+            arg!(--"number" <NUM> "指定圣遗物数量（在自动识别数量不准确时使用，即自动检测）")
+                .default_value("0")
+                .value_parser(value_parser!(u32)),
+        )
         .arg(arg!(--"verbose" "显示详细信息"))
-        .arg(arg!(--"offset-x" <OFFSET> "人为指定横坐标偏移（截图有偏移时可用该选项校正，默认0）").default_value("0").value_parser(value_parser!(u32)))
-        .arg(arg!(--"offset-y" <OFFSET> "人为指定纵坐标偏移（截图有偏移时可用该选项校正，默认0）").default_value("0").value_parser(value_parser!(u32)))
-        .arg(arg!(--"speed" <SPEED> "速度（共1-5档，默认5，如提示大量重复尝试降低速度）").default_value("5").value_parser(value_parser!(u32)))
+        .arg(
+            arg!(--"offset-x" <OFFSET> "人为指定横坐标偏移（截图有偏移时可用该选项校正）")
+                .default_value("0")
+                .value_parser(value_parser!(i32)),
+        )
+        .arg(
+            arg!(--"offset-y" <OFFSET> "人为指定纵坐标偏移（截图有偏移时可用该选项校正）")
+                .default_value("0")
+                .value_parser(value_parser!(i32)),
+        )
+        .arg(
+            arg!(--"speed" <SPEED> "速度（共1-5档，如提示大量重复尝试降低速度）")
+                .default_value("5")
+                .value_parser(value_parser!(u32)),
+        )
         .arg(arg!(--"no-check" "不检测是否已打开背包等"))
-        .arg(arg!(--"max-wait-scroll" <TIME> "翻页的最大等待时间(ms)（默认0）").default_value("0").value_parser(value_parser!(u32)))
+        .arg(
+            arg!(--"max-wait-scroll" <TIME> "翻页的最大等待时间(ms)")
+                .default_value("0")
+                .value_parser(value_parser!(u32)),
+        )
         .arg(arg!(--"dxgcap" "使用dxgcap捕获屏幕"))
         .arg(arg!(--"gui" "开启Web GUI"))
 }
@@ -109,10 +153,10 @@ fn get_info(matches: &ArgMatches) -> Result<info::ScanInfo> {
     Ok(info)
 }
 
-fn do_scan(matches: ArgMatches) -> Result<()> {
+fn do_scan(matches: ArgMatches) -> Result<Vec<InternalArtifact>> {
     let config = YasScannerConfig::from_match(&matches)?;
     let info = get_info(&matches)?;
-    let output_dir = Path::new(matches.get_one::<String>("output-dir").unwrap());
+    let output_dir = Path::new(matches.try_get_one::<String>("output-dir")?.unwrap());
 
     let mut scanner = YasScanner::new(info.clone(), config)?;
 
@@ -130,7 +174,8 @@ fn do_scan(matches: ArgMatches) -> Result<()> {
     // GOOD
     let good = GoodFormat::new(&results);
     utils::dump_json(&good, output_dir.join("good.json"))?;
-    Ok(())
+
+    Ok(results)
 }
 
 fn do_lock(matches: ArgMatches, indices: Vec<u32>) -> Result<()> {
@@ -163,46 +208,88 @@ fn run_once(matches: ArgMatches) -> Result<()> {
     if lock_mode {
         do_lock(matches, indices)
     } else {
-        do_scan(matches)
+        do_scan(matches).map(|_| ())
     }
 }
 
 fn run_ws(matches: ArgMatches) -> Result<()> {
-    let cfg_ntf = Packet::ConfigNotify(ConfigNotifyData {
-        config: YasScannerConfig::from_match(&matches)?,
-    });
-    let cfg_ntf_json = serde_json::to_string(&cfg_ntf)?;
+    let cfg_ntf = ConfigNotifyData::packet(&matches)?;
 
     let addr = "127.0.0.1:2022";
     let server = TcpListener::bind(addr)?;
-    info!("Websocket server started: ws://{}", addr);
+    info!("websocket server started: ws://{}", addr);
+
+    let recv_packet = |ws: &mut WebSocket<TcpStream>| -> Result<Option<Packet>> {
+        match ws.read_message() {
+            Ok(Message::Text(json)) => Ok(Some(serde_json::from_str::<Packet>(&json)?)),
+            Ok(m) => {
+                warn!("ignored message: {:?}", m);
+                Ok(None)
+            }
+            Err(e) => {
+                warn!("connection lost: {}", e);
+                Err(anyhow!(e))
+            }
+        }
+    };
+
+    let handle_packet = |pkt: &Packet| -> Result<Option<Packet>> {
+        match pkt {
+            Packet::ScanReq(p) => {
+                info!("recieved: {:?}", pkt.name());
+                let matches = get_cli()
+                    .no_binary_name(true)
+                    .try_get_matches_from(p.argv.iter())?;
+                Ok(Some(ScanRspData::packet(do_scan(matches))?))
+            }
+            Packet::LockReq(p) => {
+                info!("recieved: {:?}", pkt.name());
+                let matches = get_cli()
+                    .no_binary_name(true)
+                    .try_get_matches_from(p.argv.iter())?;
+                Ok(Some(LockRspData::packet(do_lock(
+                    matches,
+                    p.indices.clone(),
+                ))?))
+            }
+            p => {
+                warn!("unexpected packet: {}", p.name());
+                Err(anyhow!("unexpected packet"))
+            }
+        }
+    };
+
+    let send_packet = |ws: &mut WebSocket<TcpStream>, pkt: &Packet| -> Result<()> {
+        match ws.write_message(Message::Text(pkt.to_json()?)) {
+            Ok(_) => {
+                info!("sent: {}", pkt.name());
+                Ok(())
+            }
+            Err(e) => {
+                warn!("connection closed: {}", e);
+                Err(anyhow!(e))
+            }
+        }
+    };
 
     for stream in server.incoming() {
         let stream = stream?;
-        info!("New connection: {}", stream.peer_addr()?);
+        info!("connection established: {}", stream.peer_addr()?);
         let mut ws = accept(stream)?;
-        ws.write_message(Message::Text(cfg_ntf_json.clone()))?;
+        send_packet(&mut ws, &cfg_ntf)?;
         loop {
-            let json = match ws.read_message() {
-                Ok(Message::Text(v)) => v,
-                Ok(m) => {
-                    warn!("ignored message: {:?}", m);
-                    continue;
-                }
-                Err(e) => {
-                    info!("socket closed: {}", e);
-                    break;
-                }
+            let pkt = match recv_packet(&mut ws) {
+                Ok(Some(p)) => p,
+                Ok(None) => continue,
+                Err(_) => break,
             };
-            match serde_json::from_str::<Packet>(&json) {
-                Ok(Packet::ScanReq(p)) => {
-                    println!("{:?}", p);
-                }
-                Ok(Packet::LockReq(p)) => {
-                    println!("{:?}", p);
-                }
-                Ok(p) => error!("unexpected packet: {:?}", p),
-                Err(e) => error!("fail to parse packet: {}", e),
+            let rsp = match handle_packet(&pkt) {
+                Ok(Some(p)) => p,
+                Ok(None) => continue,
+                Err(_) => continue,
+            };
+            if let Err(_) = send_packet(&mut ws, &rsp) {
+                break;
             }
         }
     }

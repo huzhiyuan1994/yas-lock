@@ -954,11 +954,6 @@ impl YasScanner {
                     self.col
                 };
                 for col in 0..c {
-                    // 大于最大数量则退出
-                    if scanned_count > count {
-                        break 'outer;
-                    }
-
                     // 右键终止
                     if utils::is_rmb_down() {
                         break 'outer;
@@ -992,6 +987,11 @@ impl YasScanner {
                     tx.send(Some((capture, star, lock)))?;
 
                     scanned_count += 1;
+
+                    // 大于最大数量则退出
+                    if scanned_count >= count {
+                        break 'outer;
+                    }
                 } // end 'col
 
                 // info!("{:?}", locks);
@@ -1115,11 +1115,6 @@ impl YasScanner {
                     self.col
                 };
                 for col in 0..c {
-                    // 大于最大数量则退出
-                    if scanned_count > count {
-                        break 'outer;
-                    }
-
                     // 右键终止
                     if utils::is_rmb_down() {
                         break 'outer;
@@ -1129,6 +1124,11 @@ impl YasScanner {
                     // results.push(lock);
                     // locks_idx += 1;
                     scanned_count += 1;
+
+                    // 大于最大数量则退出
+                    if scanned_count >= count {
+                        break 'outer;
+                    }
                 } // end 'col
 
                 // info!("{:?}", locks);
