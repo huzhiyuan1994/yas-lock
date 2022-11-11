@@ -40,6 +40,8 @@ pub struct YasScannerConfig {
     max_wait_scroll: u32,
     mark: bool,
     dxgcap: bool,
+    default_stop: u32,
+    lock_stop: u32,
 }
 
 impl YasScannerConfig {
@@ -59,6 +61,8 @@ impl YasScannerConfig {
             no_check: matches.get_flag("no-check"),
             max_wait_scroll: *matches.get_one("max-wait-scroll").unwrap(),
             dxgcap: matches.get_flag("dxgcap"),
+            default_stop: *matches.get_one("default-stop").unwrap(),
+            lock_stop: *matches.get_one("lock-stop").unwrap(),
         })
     }
 }
@@ -142,6 +146,18 @@ fn eq(x: u8, y: u8, threshold: u8) -> bool {
     } else {
         true
     }
+}
+
+fn get_pool_of_rect(shot: &RawCaptureImage, rect: &PixelRect) -> Result<f64> {
+    let mut pool = 0_f64;
+    for x in 0..rect.width {
+        for y in 0..rect.height {
+            pool += shot
+                .get_color((rect.left + x) as u32, (rect.top + y) as u32)?
+                .1 as f64;
+        }
+    }
+    Ok(pool)
 }
 
 pub struct YasScanner {
@@ -288,46 +304,10 @@ impl YasScanner {
 
     fn get_pool(&mut self, shot: &RawCaptureImage) -> Result<f64> {
         let mut pool = 0_f64;
-        for x in 0..self.info.sub_stat1_position.width {
-            for y in 0..self.info.sub_stat1_position.height {
-                pool += shot
-                    .get_color(
-                        (self.info.sub_stat1_position.left + x) as u32,
-                        (self.info.sub_stat1_position.top + y) as u32,
-                    )?
-                    .1 as f64;
-            }
-        }
-        for x in 0..self.info.sub_stat2_position.width {
-            for y in 0..self.info.sub_stat2_position.height {
-                pool += shot
-                    .get_color(
-                        (self.info.sub_stat2_position.left + x) as u32,
-                        (self.info.sub_stat2_position.top + y) as u32,
-                    )?
-                    .1 as f64;
-            }
-        }
-        for x in 0..self.info.sub_stat3_position.width {
-            for y in 0..self.info.sub_stat3_position.height {
-                pool += shot
-                    .get_color(
-                        (self.info.sub_stat3_position.left + x) as u32,
-                        (self.info.sub_stat3_position.top + y) as u32,
-                    )?
-                    .1 as f64;
-            }
-        }
-        for x in 0..self.info.sub_stat4_position.width {
-            for y in 0..self.info.sub_stat4_position.height {
-                pool += shot
-                    .get_color(
-                        (self.info.sub_stat4_position.left + x) as u32,
-                        (self.info.sub_stat4_position.top + y) as u32,
-                    )?
-                    .1 as f64;
-            }
-        }
+        pool += get_pool_of_rect(&shot, &self.info.sub_stat1_position)?;
+        pool += get_pool_of_rect(&shot, &self.info.sub_stat2_position)?;
+        pool += get_pool_of_rect(&shot, &self.info.sub_stat3_position)?;
+        pool += get_pool_of_rect(&shot, &self.info.sub_stat4_position)?;
         Ok(pool)
     }
 
@@ -372,9 +352,9 @@ impl YasScanner {
         }
         self.enigo.mouse_move_to(rect.left, rect.top + offset);
         self.enigo.mouse_down(MouseButton::Left);
-        utils::sleep(500);
+        utils::sleep(self.config.default_stop);
         self.enigo.mouse_move_to(rect.left, self.info.top + 10);
-        utils::sleep(500);
+        utils::sleep(self.config.default_stop);
         self.enigo.mouse_up(MouseButton::Left);
         Ok(())
     }
@@ -384,7 +364,7 @@ impl YasScanner {
         // move focus to the first artifact
         self.move_to(0, 0);
         self.enigo.mouse_click(MouseButton::Left);
-        utils::sleep(500);
+        utils::sleep(self.config.default_stop);
         // match ruler and ruler_shift to get scroll speed
         let ruler = self.get_ruler()?.data;
         fs::write("dumps/scroll_0.txt", format!("{:?}", ruler))
@@ -393,7 +373,6 @@ impl YasScanner {
         // this is because some pixels are mixed after scrolling
         'scroll: for n_scroll in 1..=5 {
             self.scroll(-1);
-            // utils::sleep(400);
             let ruler_shift = self.get_ruler()?.data;
             fs::write(
                 format!("dumps/scroll_{}.txt", n_scroll),
@@ -411,7 +390,6 @@ impl YasScanner {
                 self.pixels_per_scroll = (i / 4) as f64 / (n_scroll as f64);
                 // undo scrolls
                 self.scroll(n_scroll);
-                // utils::sleep(400);
                 break 'scroll;
             }
         }
@@ -616,7 +594,7 @@ impl YasScanner {
         self.enigo
             .mouse_move_to(self.info.left + 10, self.info.top + 10);
         self.enigo.mouse_click(MouseButton::Left);
-        utils::sleep(100);
+        utils::sleep(self.config.default_stop);
         // capture game screen
         let rect = PixelRect {
             left: self.info.left,
@@ -963,13 +941,6 @@ impl YasScanner {
                     self.enigo.mouse_click(MouseButton::Left);
 
                     let capture = self.wait_until_switched()?;
-                    // println!("{}ms switched", now.elapsed()?.as_millis());
-                    // now = SystemTime::now();
-                    // utils::sleep(80);
-
-                    // let capture = self.capture_panel()?;
-                    // println!("{} captured", now.elapsed()?.as_millis());
-                    // now = SystemTime::now();
 
                     // capture
                     //     .save(&format!("dumps/art_{}.png", scanned_count + 1))
@@ -1010,8 +981,6 @@ impl YasScanner {
             self.scroll_rows(scroll_row)?;
             // println!("{}ms scrolled", now.elapsed()?.as_millis());
             // now = SystemTime::now();
-
-            // utils::sleep(100);
         }
 
         tx.send(None)?;
@@ -1062,7 +1031,6 @@ impl YasScanner {
                 if utils::is_rmb_down() {
                     break;
                 }
-                // utils::sleep(100);
             }
             // 右键终止
             if utils::is_rmb_down() {
@@ -1073,13 +1041,14 @@ impl YasScanner {
             self.move_to(row - scanned_row + start_row, col);
             self.enigo.mouse_click(MouseButton::Left);
             self.wait_until_switched()?;
-            // utils::sleep(100);
 
             let left: i32 = self.info.left + self.info.lock_x as i32;
             let top: i32 = self.info.top + self.info.lock_y as i32;
+
             self.enigo.mouse_move_to(left, top);
             self.enigo.mouse_click(MouseButton::Left);
-            utils::sleep(100);
+            utils::sleep(self.config.lock_stop);
+
             self.move_to(row - scanned_row + start_row, col);
         }
         Ok(())
