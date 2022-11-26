@@ -48,6 +48,15 @@ fn read_lock_file<P: AsRef<Path>>(path: P) -> Result<Vec<u32>> {
     Ok(l)
 }
 
+fn read_config_file<P: AsRef<Path>>(path: P) -> Result<YasScannerConfig> {
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+
+    let c: YasScannerConfig = serde_yaml::from_reader(reader)?;
+
+    Ok(c)
+}
+
 fn get_cli() -> Command {
     Command::new("YAS-lock - 原神圣遗物导出&加解锁")
         .version("v1.0.8-beta4")
@@ -120,13 +129,19 @@ fn get_cli() -> Command {
                 .default_value("0")
                 .value_parser(value_parser!(i32)),
         )
+        .arg(
+            arg!(--"window" <NAME> "原神窗口名")
+                .default_value("原神"),
+        )
 }
 
 fn get_info(matches: &ArgMatches) -> Result<info::ScanInfo> {
     utils::set_dpi_awareness();
 
-    let hwnd =
-        utils::find_window("原神").map_err(|_| anyhow!("未找到原神窗口，请确认原神已经开启"))?;
+    let window_name: String = matches.get_one::<String>("window").unwrap().to_string();
+
+    let hwnd = utils::find_window(&window_name)
+        .map_err(|_| anyhow!("未找到原神窗口，请确认原神已经开启"))?;
 
     utils::show_window_and_set_foreground(hwnd);
     utils::sleep(1000);
@@ -221,11 +236,18 @@ fn run_once(matches: ArgMatches) -> Result<()> {
 }
 
 fn run_ws(matches: ArgMatches) -> Result<()> {
+    let verbose = matches.get_flag("verbose");
     let cfg_ntf = ConfigNotifyData::packet(&matches)?;
 
     let addr = "127.0.0.1:2022";
     let server = TcpListener::bind(addr)?;
+
     info!("websocket server started: ws://{}", addr);
+
+    open::that(format!(
+        "https://ideless.github.io/artifact/#?ws=ws://{}",
+        addr
+    ))?;
 
     let recv_packet = |ws: &mut WebSocket<TcpStream>| -> Result<Option<Packet>> {
         match ws.read_message() {
@@ -244,16 +266,22 @@ fn run_ws(matches: ArgMatches) -> Result<()> {
     let handle_packet = |pkt: &Packet| -> Result<Option<Packet>> {
         match pkt {
             Packet::ScanReq(p) => {
-                // info!("recieved: {}", pkt.name());
-                info!("recieved: {:?}", pkt);
+                if verbose {
+                    info!("recieved: {:?}", pkt);
+                } else {
+                    info!("recieved: {}", pkt.name());
+                }
                 let matches = get_cli()
                     .no_binary_name(true)
                     .try_get_matches_from(p.argv.iter())?;
                 Ok(Some(ScanRspData::packet(do_scan(matches))?))
             }
             Packet::LockReq(p) => {
-                // info!("recieved: {}", pkt.name());
-                info!("recieved: {:?}", pkt);
+                if verbose {
+                    info!("recieved: {:?}", pkt);
+                } else {
+                    info!("recieved: {}", pkt.name());
+                }
                 let matches = get_cli()
                     .no_binary_name(true)
                     .try_get_matches_from(p.argv.iter())?;
@@ -272,8 +300,11 @@ fn run_ws(matches: ArgMatches) -> Result<()> {
     let send_packet = |ws: &mut WebSocket<TcpStream>, pkt: &Packet| -> Result<()> {
         match ws.write_message(Message::Text(pkt.to_json()?)) {
             Ok(_) => {
-                // info!("sent: {}", pkt.name());
-                info!("sent: {:?}", pkt);
+                if verbose {
+                    info!("sent: {:?}", pkt);
+                } else {
+                    info!("sent: {}", pkt.name());
+                }
                 Ok(())
             }
             Err(e) => {
