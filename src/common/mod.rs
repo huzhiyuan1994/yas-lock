@@ -53,6 +53,14 @@ pub struct PixelRectBound {
 }
 
 impl PixelRectBound {
+    pub fn to_rect(&self) -> PixelRect {
+        PixelRect {
+            left: self.left,
+            top: self.top,
+            width: self.right - self.left,
+            height: self.bottom - self.top,
+        }
+    }
     pub fn capture_absolute(&self) -> Result<RawImage> {
         let w = self.right - self.left;
         let h = self.bottom - self.top;
