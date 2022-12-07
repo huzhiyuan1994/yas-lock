@@ -1,0 +1,8 @@
+{
+    "cmd": "ScanRsp",
+    "data": {
+        "success": true,
+        "message": "",
+        "good_json": "{}"
+    }
+}

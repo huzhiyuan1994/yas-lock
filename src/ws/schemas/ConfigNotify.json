@@ -1,0 +1,8 @@
+{
+    "cmd": "ConfigNotify",
+    "data": {
+        "config": {
+            "number": 1500
+        }
+    }
+}

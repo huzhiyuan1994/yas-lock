@@ -1,10 +1,12 @@
 use anyhow::Result;
+use serde::Serialize;
 use std::ffi::OsStr;
 use std::fs;
-use std::io::stdin;
+use std::io::{stdin, Write};
 use std::iter::once;
 use std::mem::transmute;
 use std::os::windows::ffi::OsStrExt;
+use std::path::PathBuf;
 use std::process;
 use std::ptr::null_mut;
 use std::{thread, time};
@@ -195,4 +197,11 @@ pub fn show_window_and_set_foreground(hwnd: HWND) {
         ShowWindow(hwnd, SW_RESTORE);
         SetForegroundWindow(hwnd);
     }
+}
+
+pub fn dump_json(data: &impl Serialize, path: PathBuf) -> Result<()> {
+    let mut file = fs::File::create(path)?;
+    let s = serde_json::to_string(data)?;
+    file.write_all(s.as_bytes())?;
+    Ok(())
 }

@@ -222,7 +222,27 @@ impl ArtifactStatKey {
             "岩元素伤害加成" => Some(ArtifactStatKey::GeoBonus),
             "草元素伤害加成" => Some(ArtifactStatKey::DendroBonus),
             "物理伤害加成" => Some(ArtifactStatKey::PhysicalBonus),
-            _ => None,
+            _ => {
+                if name.starts_with("雷") {
+                    return Some(ArtifactStatKey::ElectroBonus);
+                } else if name.starts_with("火") {
+                    return Some(ArtifactStatKey::PyroBonus);
+                } else if name.starts_with("水") {
+                    return Some(ArtifactStatKey::HydroBonus);
+                } else if name.starts_with("冰") {
+                    return Some(ArtifactStatKey::CryoBonus);
+                } else if name.starts_with("风") {
+                    return Some(ArtifactStatKey::AnemoBonus);
+                } else if name.starts_with("岩") {
+                    return Some(ArtifactStatKey::GeoBonus);
+                } else if name.starts_with("草") {
+                    return Some(ArtifactStatKey::DendroBonus);
+                } else if name.starts_with("物理") {
+                    return Some(ArtifactStatKey::PhysicalBonus);
+                } else {
+                    return None;
+                }
+            }
         }
     }
 }

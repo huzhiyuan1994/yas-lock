@@ -3,8 +3,9 @@
 data/
 target/
 mona.json
+genmo.json
+good.json
 .idea/
 captures/
 
 dumps
-*.json

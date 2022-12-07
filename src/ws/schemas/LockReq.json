@@ -1,0 +1,12 @@
+{
+    "cmd": "LockReq",
+    "data": {
+        "argv": [
+            "--no-check"
+        ],
+        "indices": [
+            0,
+            1
+        ]
+    }
+}
