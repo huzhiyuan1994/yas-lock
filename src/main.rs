@@ -59,7 +59,7 @@ fn read_config_file<P: AsRef<Path>>(path: P) -> Result<YasScannerConfig> {
 
 fn get_cli() -> Command {
     Command::new("YAS-lock - 原神圣遗物导出&加解锁")
-        .version("v1.0.8-beta6")
+        .version("v1.0.8-beta7")
         .author("wormtql <584130248@qq.com>, ideles <pyjy@yahoo.com>")
         .arg(arg!(--"dump" "输出模型预测结果、二值化图像和灰度图像，debug专用"))
         .arg(arg!(--"capture-only" "只保存截图，不进行扫描，debug专用"))

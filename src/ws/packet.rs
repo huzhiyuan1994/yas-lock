@@ -2,7 +2,7 @@ use crate::{
     artifact::internal_artifact::InternalArtifact, expo::good::GoodFormat,
     scanner::yas_scanner::YasScannerConfig,
 };
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use clap::ArgMatches;
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;

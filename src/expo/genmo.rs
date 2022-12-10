@@ -121,6 +121,8 @@ impl ArtifactSetKey {
             ArtifactSetKey::EchoesOfAnOffering => "echoes_of_an_offering",
             ArtifactSetKey::DeepwoodMemories => "deepwood_memories",
             ArtifactSetKey::GildedDreams => "gilded_dreams",
+            ArtifactSetKey::DesertPavilionChronicle => "desert_pavilion_chronicle",
+            ArtifactSetKey::FlowerOfParadiseLost => "flower_of_paradise_lost",
 
             // Not supported by Mingyulab
             ArtifactSetKey::Adventurer => unreachable!(),

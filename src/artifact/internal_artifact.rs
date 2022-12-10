@@ -79,6 +79,8 @@ pub enum ArtifactSetKey {
     EchoesOfAnOffering,
     DeepwoodMemories,
     GildedDreams,
+    DesertPavilionChronicle,
+    FlowerOfParadiseLost,
 }
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq, Display)]
@@ -98,6 +100,7 @@ pub enum CharacterKey {
     Diona,
     Dori,
     Eula,
+    Faruzan,
     Fischl,
     Ganyu,
     Gorou,
@@ -111,8 +114,10 @@ pub enum CharacterKey {
     Klee,
     KujouSara,
     KukiShinobu,
+    Layla,
     Lisa,
     Mona,
+    Nahida,
     Nilou,
     Ningguang,
     Noelle,
@@ -129,6 +134,7 @@ pub enum CharacterKey {
     Tighnari,
     Traveler,
     Venti,
+    Wanderer,
     Xiangling,
     Xiao,
     Xingqiu,
@@ -473,6 +479,16 @@ pub fn get_real_artifact_name_chs(raw: &str) -> Option<String> {
         "沉金的岁月",
         "如蜜的终宴",
         "沙王的投影",
+        "流沙贵嗣的遗宝",
+        "黄金邦国的结末",
+        "众王之都的开端",
+        "失落迷途的机芯",
+        "迷醉长梦的守护",
+        "紫晶的花冠",
+        "谢落的筵席",
+        "月女的华彩",
+        "凝结的时刻",
+        "守秘的魔瓶",
     ];
 
     let mut min_index = 0;
@@ -688,6 +704,14 @@ impl ArtifactSetKey {
             "梦中的铁花" | "裁断的翎羽" | "沉金的岁月" | "如蜜的终宴" | "沙王的投影" => {
                 Some(ArtifactSetKey::GildedDreams)
             }
+            "流沙贵嗣的遗宝"
+            | "黄金邦国的结末"
+            | "众王之都的开端"
+            | "失落迷途的机芯"
+            | "迷醉长梦的守护" => Some(ArtifactSetKey::DesertPavilionChronicle),
+            "紫晶的花冠" | "谢落的筵席" | "月女的华彩" | "凝结的时刻" | "守秘的魔瓶" => {
+                Some(ArtifactSetKey::FlowerOfParadiseLost)
+            }
             _ => None,
         }
     }
@@ -891,6 +915,16 @@ impl ArtifactSlotKey {
             "沉金的岁月" => Some(ArtifactSlotKey::Sands),
             "如蜜的终宴" => Some(ArtifactSlotKey::Goblet),
             "沙王的投影" => Some(ArtifactSlotKey::Circlet),
+            "流沙贵嗣的遗宝" => Some(ArtifactSlotKey::Circlet),
+            "黄金邦国的结末" => Some(ArtifactSlotKey::Plume),
+            "众王之都的开端" => Some(ArtifactSlotKey::Flower),
+            "失落迷途的机芯" => Some(ArtifactSlotKey::Sands),
+            "迷醉长梦的守护" => Some(ArtifactSlotKey::Goblet),
+            "紫晶的花冠" => Some(ArtifactSlotKey::Circlet),
+            "谢落的筵席" => Some(ArtifactSlotKey::Plume),
+            "月女的华彩" => Some(ArtifactSlotKey::Flower),
+            "凝结的时刻" => Some(ArtifactSlotKey::Sands),
+            "守秘的魔瓶" => Some(ArtifactSlotKey::Goblet),
             _ => None,
         }
     }
@@ -915,6 +949,7 @@ impl CharacterKey {
             "多莉" => Some(CharacterKey::Dori),
             "优菈" => Some(CharacterKey::Eula),
             "菲谢尔" => Some(CharacterKey::Fischl),
+            "珐露珊" => Some(CharacterKey::Faruzan),
             "甘雨" => Some(CharacterKey::Ganyu),
             "五郎" => Some(CharacterKey::Gorou),
             "胡桃" => Some(CharacterKey::HuTao),
@@ -927,8 +962,10 @@ impl CharacterKey {
             "可莉" => Some(CharacterKey::Klee),
             "九条裟罗" => Some(CharacterKey::KujouSara),
             "久岐忍" => Some(CharacterKey::KukiShinobu),
+            "莱依拉" => Some(CharacterKey::Layla),
             "丽莎" => Some(CharacterKey::Lisa),
             "莫娜" => Some(CharacterKey::Mona),
+            "纳西妲" => Some(CharacterKey::Nahida),
             "妮露" => Some(CharacterKey::Nilou),
             "凝光" => Some(CharacterKey::Ningguang),
             "诺艾尔" => Some(CharacterKey::Noelle),
@@ -945,6 +982,7 @@ impl CharacterKey {
             "提纳里" => Some(CharacterKey::Tighnari),
             "旅行者" => Some(CharacterKey::Traveler),
             "温迪" => Some(CharacterKey::Venti),
+            "流浪者" => Some(CharacterKey::Wanderer),
             "香菱" => Some(CharacterKey::Xiangling),
             "魈" => Some(CharacterKey::Xiao),
             "行秋" => Some(CharacterKey::Xingqiu),
