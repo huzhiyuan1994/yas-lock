@@ -230,6 +230,13 @@ impl YasScanner {
 }
 
 impl YasScanner {
+    fn align_panel(&mut self) {
+        let left: i32 = self.info.left + self.info.lock_x as i32;
+        let top: i32 = self.info.top + self.info.lock_y as i32;
+        self.enigo.mouse_move_to(left, top);
+        self.scroll(10);
+    }
+
     fn capture(&mut self, rect: &PixelRect) -> Result<RawCaptureImage> {
         if self.config.dxgcap {
             let (pixels, (w, _)) = self
@@ -503,50 +510,32 @@ impl YasScanner {
         let now = SystemTime::now();
         let mut consecutive_time = 0;
         let mut diff_flag = false;
-        // let mut pools = Vec::new();
+        let mut pools = Vec::new();
+
         while now.elapsed()?.as_millis() < self.config.max_wait_switch_artifact as u128 {
-            // let pool_start = SystemTime::now();
             let shot = self.capture_panel()?;
             let pool = self.get_pool(&shot)?;
-            // pools.push(pool);
-            // info!("pool: {}", pool);
-            // println!(
-            //     "pool: {}, time: {}ms",
-            //     pool,
-            //     pool_start.elapsed().unwrap().as_millis()
-            // );
+
+            pools.push(pool);
 
             if (pool - self.pool).abs() > 0.000001 {
-                // info!("pool: {}", pool);
-                // let raw = RawCaptureImage {
-                //     data: im,
-                //     w: rect.width as u32,
-                //     h: rect.height as u32,
-                // };
-                // println!("{:?}", &raw.data[..10]);
-                // raw.save(&format!(
-                //     "dumps/pool_{}.png",
-                //     now.duration_since(UNIX_EPOCH).unwrap().as_millis()
-                // ))
-                // .expect("save image error");
-
                 self.pool = pool;
                 diff_flag = true;
                 consecutive_time = 0;
                 // info!("avg switch time: {}ms", self.avg_switch_time);
             }
             if diff_flag {
-                // info!("switched");
                 consecutive_time += 1;
                 if consecutive_time + self.config.speed >= 6 {
                     self.avg_switch_time = (self.avg_switch_time * self.scanned_count as f64
                         + now.elapsed()?.as_millis() as f64)
                         / (self.scanned_count as f64 + 1.0);
                     self.scanned_count += 1;
+                    if self.config.verbose {
+                        info!("pools: {:?}", pools);
+                    }
                     return Ok(shot);
                 }
-                // } else {
-                //     info!("pool: same");
             }
         }
 
@@ -556,6 +545,9 @@ impl YasScanner {
             // pools
         );
 
+        if self.config.verbose {
+            info!("pools: {:?}", pools);
+        }
         self.capture_panel()
     }
 
@@ -766,6 +758,7 @@ impl YasScanner {
     }
 
     pub fn scan(&mut self) -> Result<Vec<InternalArtifact>> {
+        self.align_panel();
         self.check_menu()?;
         self.scroll_to_top()?;
         self.get_scroll_speed()?;
@@ -1000,6 +993,7 @@ impl YasScanner {
         Ok(results)
     }
     pub fn flip_lock(&mut self, indices: Vec<u32>) -> Result<()> {
+        self.align_panel();
         self.check_menu()?;
         self.scroll_to_top()?;
         self.get_scroll_speed()?;
