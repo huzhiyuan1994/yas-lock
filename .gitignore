@@ -2,9 +2,7 @@
 *.png
 data/
 target/
-mona.json
-genmo.json
-good.json
+*.json
 .idea/
 captures/
 

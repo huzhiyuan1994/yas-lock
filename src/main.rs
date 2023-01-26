@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use std::fs;
 use std::fs::File;
 use std::io::stdin;
 use std::io::stdout;
@@ -9,6 +10,7 @@ use std::path::Path;
 use std::time::SystemTime;
 use tungstenite::WebSocket;
 use yas::artifact::internal_artifact::InternalArtifact;
+use yas::lock::LockAction;
 use yas::ws::packet::{ConfigNotifyData, LockRspData, ScanRspData};
 
 use yas::capture::capture_absolute_image;
@@ -38,24 +40,6 @@ use tungstenite::{accept, Message};
 
 //     String::from("unknown_version")
 // }
-
-fn read_lock_file<P: AsRef<Path>>(path: P) -> Result<Vec<u32>> {
-    let file = File::open(path)?;
-    let reader = BufReader::new(file);
-
-    let l: Vec<u32> = serde_json::from_reader(reader)?;
-
-    Ok(l)
-}
-
-fn read_config_file<P: AsRef<Path>>(path: P) -> Result<YasScannerConfig> {
-    let file = File::open(path)?;
-    let reader = BufReader::new(file);
-
-    let c: YasScannerConfig = serde_yaml::from_reader(reader)?;
-
-    Ok(c)
-}
 
 fn get_cli() -> Command {
     Command::new("YAS-lock - 原神圣遗物导出&加解锁")
@@ -206,19 +190,19 @@ fn do_scan(matches: ArgMatches) -> Result<Vec<InternalArtifact>> {
     Ok(results)
 }
 
-fn do_lock(matches: ArgMatches, indices: Vec<u32>) -> Result<()> {
+fn do_lock(matches: ArgMatches, actions: Vec<LockAction>) -> Result<()> {
     let config = YasScannerConfig::from_match(&matches)?;
     let info = get_info(&matches)?;
 
     let mut scanner = YasScanner::new(info.clone(), config)?;
-    scanner.flip_lock(indices)
+    scanner.lock(actions)
 }
 
 fn run_once(matches: ArgMatches) -> Result<()> {
     let output_dir = Path::new(matches.get_one::<String>("output-dir").unwrap());
 
     let mut lock_mode = false;
-    let mut indices: Vec<u32> = Vec::new();
+    let mut actions: Vec<LockAction> = Vec::new();
 
     let lock_filename = output_dir.join("lock.json");
     if lock_filename.exists() {
@@ -227,14 +211,15 @@ fn run_once(matches: ArgMatches) -> Result<()> {
         let mut s: String = String::new();
         stdin().read_line(&mut s)?;
         if s.trim() == "y" {
-            indices = read_lock_file(lock_filename)?;
+            let json_str = fs::read_to_string(lock_filename)?;
+            actions = LockAction::from_lock_json(&json_str)?;
             lock_mode = true;
         }
     }
 
     // let _ = scanner.test()?;
     if lock_mode {
-        do_lock(matches, indices)
+        do_lock(matches, actions)
     } else {
         do_scan(matches).map(|_| ())
     }
@@ -290,10 +275,14 @@ fn run_ws(matches: ArgMatches) -> Result<()> {
                 let matches = get_cli()
                     .no_binary_name(true)
                     .try_get_matches_from(p.argv.iter())?;
-                Ok(Some(LockRspData::packet(do_lock(
-                    matches,
-                    p.indices.clone(),
-                ))?))
+                let actions = match &p.lock_json {
+                    Some(json_str) => LockAction::from_lock_json(&json_str)?,
+                    None => match &p.indices {
+                        Some(indices) => LockAction::from_v1(&indices),
+                        None => Vec::new(),
+                    },
+                };
+                Ok(Some(LockRspData::packet(do_lock(matches, actions))?))
             }
             p => {
                 warn!("unexpected packet: {}", p.name());

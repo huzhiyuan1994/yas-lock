@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use std::cmp::min;
 use std::collections::HashSet;
 use std::convert::From;
 use std::fs;
@@ -23,6 +24,7 @@ use crate::common::{utils, PixelRect, RawCaptureImage};
 use crate::inference::inference::CRNNModel;
 use crate::inference::pre_process::pre_process;
 use crate::info::info::ScanInfo;
+use crate::lock::{LockAction, LockActionType};
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct YasScannerConfig {
@@ -992,67 +994,112 @@ impl YasScanner {
         info!("count: {}", results.len());
         Ok(results)
     }
-    pub fn flip_lock(&mut self, indices: Vec<u32>) -> Result<()> {
+
+    pub fn lock(&mut self, actions: Vec<LockAction>) -> Result<()> {
         self.align_panel();
         self.check_menu()?;
         self.scroll_to_top()?;
         self.get_scroll_speed()?;
 
-        let mut indices = indices;
-        indices.sort();
+        let mut scrolled_rows: u32 = 0;
+        let mut start_row: u32 = 0;
+        let mut start_action;
+        let mut end_action: usize = 0;
+        let mut start_art;
+        let mut end_art;
+        let total_arts: u32 = self.get_art_count().unwrap_or(1500);
+        let total_rows: u32 = (total_arts + self.col - 1) / self.col;
 
-        let count = match self.get_art_count() {
-            Ok(v) => v,
-            Err(_) => 1500,
-        };
-        if indices[indices.len() - 1] > count {
-            return Err(anyhow!("指标超出范围"));
+        if actions[actions.len() - 1].target > total_arts {
+            return Err(anyhow!("target out of range"));
         }
-
-        let total_row = (count + self.col - 1) / self.col;
-        let mut scanned_row = 0_u32;
-        let mut start_row = 0_u32;
 
         // 如果不给第一个圣遗物加解锁，必须记录它的pool值
         // 以免wait_until_switched出错
-        if indices.len() > 0 && indices[0] != 0 {
+        if actions.len() > 0 && actions[0].target != 0 {
             let shot = self.capture_panel()?;
             self.pool = self.get_pool(&shot)?;
         }
 
-        for index in indices {
-            let row: u32 = index / self.col;
-            let col: u32 = index % self.col;
-            while row >= scanned_row + self.row {
-                scanned_row += self.row;
-                let remain_row = total_row - scanned_row;
-                let scroll_row = remain_row.min(self.row);
-                start_row = self.row - scroll_row;
-                self.scroll_rows(scroll_row)?;
-                // 右键终止
-                if utils::is_rmb_down() {
-                    break;
+        // loop over pages
+        'outer: while end_action < actions.len() {
+            if utils::is_rmb_down() {
+                break 'outer;
+            }
+
+            start_action = end_action;
+            start_art = self.col * (scrolled_rows + start_row);
+            end_art = min(self.col * (scrolled_rows + self.row), total_arts);
+            let mut should_get_locks = false;
+            let mut locks: Vec<bool> = Vec::new();
+
+            // get actions inside current page
+            while end_action < actions.len() && actions[end_action].target < end_art {
+                if actions[end_action].type_ != LockActionType::Flip {
+                    should_get_locks = true;
+                }
+                end_action += 1;
+            }
+
+            if should_get_locks {
+                locks = self.get_locks(start_row)?;
+            }
+
+            // validate
+            for i in start_action..end_action {
+                let a = &actions[i];
+                let p = (a.target - start_art) as usize;
+                if (a.type_ == LockActionType::ValidateLocked && !locks[p])
+                    || (a.type_ == LockActionType::ValidateUnlocked && locks[p])
+                {
+                    return Err(anyhow!("Validate error"));
                 }
             }
-            // 右键终止
+
+            // flip locks
+            for i in start_action..end_action {
+                let a = &actions[i];
+                let p = (a.target - start_art) as usize;
+                if (a.type_ == LockActionType::Lock && !locks[p])
+                    || (a.type_ == LockActionType::Unlock && locks[p])
+                    || a.type_ == LockActionType::Flip
+                {
+                    if utils::is_rmb_down() {
+                        break 'outer;
+                    }
+
+                    let r = p as u32 / self.col + start_row;
+                    let c = p as u32 % self.col;
+
+                    self.move_to(r, c);
+                    self.enigo.mouse_click(MouseButton::Left);
+                    self.wait_until_switched()?;
+
+                    let left: i32 = self.info.left + self.info.lock_x as i32;
+                    let top: i32 = self.info.top + self.info.lock_y as i32;
+
+                    self.enigo.mouse_move_to(left, top);
+                    self.enigo.mouse_click(MouseButton::Left);
+                    utils::sleep(self.config.lock_stop);
+
+                    self.move_to(r, c);
+                }
+            }
+
             if utils::is_rmb_down() {
+                break 'outer;
+            }
+
+            // scroll one page
+            if total_rows <= scrolled_rows + self.row || end_action >= actions.len() {
                 break;
             }
-            // info!("{} {} {}", index, row, col);
-
-            self.move_to(row - scanned_row + start_row, col);
-            self.enigo.mouse_click(MouseButton::Left);
-            self.wait_until_switched()?;
-
-            let left: i32 = self.info.left + self.info.lock_x as i32;
-            let top: i32 = self.info.top + self.info.lock_y as i32;
-
-            self.enigo.mouse_move_to(left, top);
-            self.enigo.mouse_click(MouseButton::Left);
-            utils::sleep(self.config.lock_stop);
-
-            self.move_to(row - scanned_row + start_row, col);
+            let scroll_rows = min(total_rows - scrolled_rows - self.row, self.row);
+            self.scroll_rows(scroll_rows)?;
+            scrolled_rows += scroll_rows;
+            start_row = self.row - scroll_rows;
         }
+
         Ok(())
     }
 }

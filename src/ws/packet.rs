@@ -58,7 +58,8 @@ impl ScanRspData {
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct LockReqData {
     pub argv: Vec<String>,
-    pub indices: Vec<u32>,
+    pub indices: Option<Vec<u32>>,
+    pub lock_json: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]

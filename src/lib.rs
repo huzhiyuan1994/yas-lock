@@ -4,5 +4,6 @@ pub mod common;
 pub mod expo;
 pub mod inference;
 pub mod info;
+pub mod lock;
 pub mod scanner;
 pub mod ws;

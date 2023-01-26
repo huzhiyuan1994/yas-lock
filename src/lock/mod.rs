@@ -1,0 +1,114 @@
+use anyhow::{anyhow, Result};
+use regex::Regex;
+use serde::{Deserialize, Serialize};
+
+// lock.json format v1
+// array of indices (to flip)
+
+// lock.json format v2
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LockValidationRecord {
+    index: u32,
+    locked: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LockFormatV2 {
+    version: u32,
+    flip_indices: Vec<u32>,
+    lock_indices: Vec<u32>,
+    unlock_indices: Vec<u32>,
+    validation: Vec<LockValidationRecord>,
+}
+
+// internal format
+
+#[derive(PartialEq, Debug)]
+pub enum LockActionType {
+    ValidateLocked,
+    ValidateUnlocked,
+    Lock,
+    Unlock,
+    Flip,
+}
+
+#[derive(Debug)]
+pub struct LockAction {
+    pub target: u32,
+    pub type_: LockActionType,
+}
+
+impl LockAction {
+    pub fn from_v1(flip_indices: &Vec<u32>) -> Vec<LockAction> {
+        let mut actions: Vec<LockAction> = flip_indices
+            .iter()
+            .map(|x| LockAction {
+                target: *x,
+                type_: LockActionType::Flip,
+            })
+            .collect();
+
+        actions.sort_by_key(|x| x.target);
+
+        return actions;
+    }
+
+    pub fn from_v2(data: &LockFormatV2) -> Vec<LockAction> {
+        let mut actions: Vec<LockAction> = Vec::new();
+
+        data.flip_indices.iter().for_each(|x| {
+            actions.push(LockAction {
+                target: *x,
+                type_: LockActionType::Flip,
+            })
+        });
+
+        data.lock_indices.iter().for_each(|x| {
+            actions.push(LockAction {
+                target: *x,
+                type_: LockActionType::Lock,
+            })
+        });
+
+        data.unlock_indices.iter().for_each(|x| {
+            actions.push(LockAction {
+                target: *x,
+                type_: LockActionType::Unlock,
+            })
+        });
+
+        data.validation.iter().for_each(|x| {
+            actions.push(LockAction {
+                target: x.index,
+                type_: if x.locked {
+                    LockActionType::ValidateLocked
+                } else {
+                    LockActionType::ValidateUnlocked
+                },
+            })
+        });
+
+        actions.sort_by_key(|x| x.target);
+
+        return actions;
+    }
+
+    pub fn from_lock_json(json_str: &str) -> Result<Vec<LockAction>> {
+        // v1
+        let re_v1 = Regex::new(r"^\s*\[[\d,\s]*\]\s*$").unwrap();
+        if re_v1.is_match(json_str) {
+            let flip_indices: Vec<u32> = serde_json::from_str(json_str)?;
+            return Ok(Self::from_v1(&flip_indices));
+        }
+
+        // v2
+        let re_v2 = Regex::new(r#""version"\s*:\s*2"#).unwrap();
+        if re_v2.is_match(json_str) {
+            let data: LockFormatV2 = serde_json::from_str(json_str)?;
+            return Ok(Self::from_v2(&data));
+        }
+
+        Err(anyhow!("Unknown lock.json version"))
+    }
+}
