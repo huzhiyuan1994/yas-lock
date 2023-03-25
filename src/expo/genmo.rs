@@ -59,7 +59,7 @@ impl ArtifactStatKey {
             ArtifactStatKey::ElectroBonus => "electroDamage",
             ArtifactStatKey::PyroBonus => "pyroDamage",
             ArtifactStatKey::HydroBonus => "hydroDamage",
-            ArtifactStatKey::CryoBonus => "pyroDamage",
+            ArtifactStatKey::CryoBonus => "cryoDamage",
             ArtifactStatKey::AnemoBonus => "anemoDamage",
             ArtifactStatKey::GeoBonus => "geoDamage",
             ArtifactStatKey::PhysicalBonus => "physicalDamage",
