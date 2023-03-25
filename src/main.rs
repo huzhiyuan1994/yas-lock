@@ -1,9 +1,7 @@
 use anyhow::{anyhow, Result};
 use std::fs;
-use std::fs::File;
 use std::io::stdin;
 use std::io::stdout;
-use std::io::BufReader;
 use std::io::Write;
 use std::net::TcpStream;
 use std::path::Path;
@@ -129,8 +127,12 @@ fn get_info(matches: &ArgMatches) -> Result<info::ScanInfo> {
 
     let window_name: String = matches.get_one::<String>("window").unwrap().to_string();
 
-    let hwnd = utils::find_window(&window_name)
-        .map_err(|_| anyhow!("未找到原神窗口，请确认原神已经开启"))?;
+    let hwnd = if window_name == String::from("原神") {
+        utils::find_ys_window()
+    } else {
+        utils::find_window_by_name(&window_name)
+    }
+    .map_err(|_| anyhow!("未找到原神窗口，请确认原神已经开启"))?;
 
     utils::show_window_and_set_foreground(hwnd);
     utils::sleep(1000);

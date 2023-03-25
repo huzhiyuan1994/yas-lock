@@ -996,6 +996,11 @@ impl YasScanner {
     }
 
     pub fn lock(&mut self, actions: Vec<LockAction>) -> Result<()> {
+        if actions.len() == 0 {
+            info!("no lock actions");
+            return Ok(());
+        }
+
         self.align_panel();
         self.check_menu()?;
         self.scroll_to_top()?;

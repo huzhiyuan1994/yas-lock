@@ -32,14 +32,24 @@ pub fn encode_wide(s: String) -> Vec<u16> {
     wide
 }
 
-pub fn find_window(title: &str) -> Result<HWND, String> {
-    let wide = encode_wide(String::from(title));
-    let result: HWND = unsafe { FindWindowW(null_mut(), wide.as_ptr()) };
+fn find_window(p_class_name: *const u16, p_window_name: *const u16) -> Result<HWND, String> {
+    let result: HWND = unsafe { FindWindowW(p_class_name, p_window_name) };
     if result.is_null() {
         Err(String::from("cannot find window"))
     } else {
         Ok(result)
     }
+}
+
+pub fn find_ys_window() -> Result<HWND, String> {
+    let class_name = encode_wide(String::from("UnityWndClass"));
+    let window_name = encode_wide(String::from("原神"));
+    find_window(class_name.as_ptr(), window_name.as_ptr())
+}
+
+pub fn find_window_by_name(name: &str) -> Result<HWND, String> {
+    let window_name = encode_wide(String::from(name));
+    find_window(null_mut(), window_name.as_ptr())
 }
 
 unsafe fn get_client_rect_unsafe(hwnd: HWND) -> Result<PixelRect> {
