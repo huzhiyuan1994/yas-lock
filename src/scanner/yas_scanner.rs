@@ -450,24 +450,22 @@ impl YasScanner {
             return Ok(());
         }
 
+        self.move_to(0, 1);
+
         let total_pixels = self.offset_y + self.info.art_shift_y * count as f64;
         let total_scrolls = (total_pixels / self.pixels_per_scroll).round();
         self.offset_y = total_pixels - total_scrolls * self.pixels_per_scroll;
         self.scroll(-total_scrolls as i32);
         self.scrolled_rows += count;
 
-        if self.config.max_wait_scroll == 0 || count == 1 {
+        if self.config.max_wait_scroll == 0 {
             return Ok(());
         }
 
         // wait until scrolled
         let rect = PixelRect {
             left: self.info.left + self.info.left_margin.round() as i32,
-            top: self.info.top
-                + (self.info.top_margin
-                    + self.offset_y
-                    + self.info.art_shift_y * (self.row - count) as f64)
-                    .round() as i32,
+            top: self.info.top + (self.info.top_margin + self.offset_y).round() as i32,
             width: self.info.art_width as i32,
             height: self.info.art_height as i32,
         };
@@ -1057,7 +1055,11 @@ impl YasScanner {
                 if (a.type_ == LockActionType::ValidateLocked && !locks[p])
                     || (a.type_ == LockActionType::ValidateUnlocked && locks[p])
                 {
-                    return Err(anyhow!("Validate error"));
+                    return Err(anyhow!(format!(
+                        "Validate error: artifact at {} should be {}",
+                        a.target,
+                        if locks[p] { "unlocked" } else { "locked" }
+                    )));
                 }
             }
 
@@ -1099,10 +1101,10 @@ impl YasScanner {
             if total_rows <= scrolled_rows + self.row || end_action >= actions.len() {
                 break;
             }
-            let scroll_rows = min(total_rows - scrolled_rows - self.row, self.row);
-            self.scroll_rows(scroll_rows)?;
-            scrolled_rows += scroll_rows;
-            start_row = self.row - scroll_rows;
+            let to_scroll_rows = min(total_rows - scrolled_rows - self.row, self.row);
+            self.scroll_rows(to_scroll_rows)?;
+            scrolled_rows += to_scroll_rows;
+            start_row = self.row - to_scroll_rows;
         }
 
         Ok(())
