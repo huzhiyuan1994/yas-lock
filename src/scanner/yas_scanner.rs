@@ -43,9 +43,9 @@ pub struct YasScannerConfig {
     mark: bool,
     dxgcap: bool,
     default_stop: u32,
-    lock_stop: u32,
     yun: bool,
     scroll_speed: f64,
+    max_wait_lock: u32,
 }
 
 impl YasScannerConfig {
@@ -66,9 +66,9 @@ impl YasScannerConfig {
             max_wait_scroll: *matches.get_one("max-wait-scroll").unwrap(),
             dxgcap: matches.get_flag("dxgcap"),
             default_stop: *matches.get_one("default-stop").unwrap(),
-            lock_stop: *matches.get_one("lock-stop").unwrap(),
             yun: matches.get_one::<String>("window").unwrap().to_string() != String::from("原神"),
             scroll_speed: *matches.get_one("scroll-speed").unwrap(),
+            max_wait_lock: *matches.get_one("max-wait-lock").unwrap(),
         })
     }
 }
@@ -551,6 +551,26 @@ impl YasScanner {
         self.capture_panel()
     }
 
+    fn wait_until_flipped(
+        &mut self,
+        start_row: u32,
+        index: usize,
+        should_be_locked: bool,
+    ) -> Result<()> {
+        let now = SystemTime::now();
+
+        while now.elapsed()?.as_millis() < self.config.max_wait_lock as u128 {
+            let locks = self.get_locks(start_row, false, false)?;
+            if locks[index] == should_be_locked {
+                return Ok(());
+            }
+        }
+
+        warn!("加解锁超时 (time: {} ms)", now.elapsed()?.as_millis(),);
+
+        Ok(())
+    }
+
     fn capture_panel(&mut self) -> Result<RawCaptureImage> {
         let rect: PixelRect = PixelRect {
             left: self.info.left as i32 + self.info.panel_position.left,
@@ -597,12 +617,14 @@ impl YasScanner {
         Ok(())
     }
 
-    fn get_locks(&mut self, start_row: u32) -> Result<Vec<bool>> {
+    fn get_locks(&mut self, start_row: u32, focus: bool, mark: bool) -> Result<Vec<bool>> {
         // move focus out of all artifacts
-        self.enigo
-            .mouse_move_to(self.info.left + 10, self.info.top + 10);
-        self.enigo.mouse_click(MouseButton::Left);
-        utils::sleep(self.config.default_stop);
+        if focus {
+            self.enigo
+                .mouse_move_to(self.info.left + 10, self.info.top + 10);
+            self.enigo.mouse_click(MouseButton::Left);
+            utils::sleep(self.config.default_stop);
+        }
         // capture game screen
         let rect = PixelRect {
             left: self.info.left,
@@ -633,7 +655,7 @@ impl YasScanner {
                     }
                 }
                 // mark: lock red / unlock green
-                if self.config.mark {
+                if mark {
                     for dx in -3..3 {
                         for dy in -3..3 {
                             if locked {
@@ -656,7 +678,7 @@ impl YasScanner {
             }
         }
         // dump marked screenshot for debug
-        if self.config.mark {
+        if mark {
             self.create_dumps_folder()?;
             shot.save(&format!("dumps/lock_{}.png", self.scrolled_rows))?;
         }
@@ -922,7 +944,7 @@ impl YasScanner {
         // let mut now = SystemTime::now();
 
         'outer: while scanned_count < count {
-            let locks = self.get_locks(start_row)?;
+            let locks = self.get_locks(start_row, true, self.config.mark)?;
             // println!("{}ms got locks", now.elapsed()?.as_millis());
             // now = SystemTime::now();
             let mut locks_idx: usize = 0;
@@ -1038,14 +1060,15 @@ impl YasScanner {
 
             // get actions inside current page
             while end_action < actions.len() && actions[end_action].target < end_art {
-                if actions[end_action].type_ != LockActionType::Flip {
-                    should_get_locks = true;
-                }
+                // if actions[end_action].type_ != LockActionType::Flip {
+                //     should_get_locks = true;
+                // }
+                should_get_locks = true;
                 end_action += 1;
             }
 
             if should_get_locks {
-                locks = self.get_locks(start_row)?;
+                locks = self.get_locks(start_row, true, self.config.mark)?;
             }
 
             // validate
@@ -1087,7 +1110,7 @@ impl YasScanner {
 
                     self.enigo.mouse_move_to(left, top);
                     self.enigo.mouse_click(MouseButton::Left);
-                    utils::sleep(self.config.lock_stop);
+                    self.wait_until_flipped(start_row, p, !locks[p])?;
 
                     self.move_to(r, c);
                 }

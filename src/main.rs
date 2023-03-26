@@ -87,11 +87,6 @@ fn get_cli() -> Command {
                 .value_parser(value_parser!(u32)),
         )
         .arg(
-            arg!(--"lock-stop" <TIME> "加解锁停顿时间(ms)")
-                .default_value("100")
-                .value_parser(value_parser!(u32)),
-        )
-        .arg(
             arg!(--"max-wait-switch-artifact" <TIME> "切换圣遗物最大等待时间(ms)")
                 .default_value("800")
                 .value_parser(value_parser!(u32)),
@@ -99,6 +94,11 @@ fn get_cli() -> Command {
         .arg(
             arg!(--"max-wait-scroll" <TIME> "翻页的最大等待时间(ms)（翻页不正确可以考虑加大该选项）")
                 .default_value("0")
+                .value_parser(value_parser!(u32)),
+        )
+        .arg(
+            arg!(--"max-wait-lock" <TIME> "加解锁的最大等待时间(ms)（加解锁不正确可以考虑加大该选项）")
+                .default_value("800")
                 .value_parser(value_parser!(u32)),
         )
         .arg(
