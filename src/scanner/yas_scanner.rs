@@ -206,10 +206,7 @@ impl YasScanner {
         }
 
         Ok(YasScanner {
-            model: CRNNModel::new(
-                String::from("model_training.onnx"),
-                String::from("index_2_word.json"),
-            )?,
+            model: CRNNModel::new()?,
             enigo: Enigo::new(),
             dxg,
 
@@ -811,10 +808,7 @@ impl YasScanner {
         let min_level = self.config.min_level;
         let handle = thread::spawn(move || -> Result<Vec<InternalArtifact>> {
             let mut results: Vec<InternalArtifact> = Vec::new();
-            let model = CRNNModel::new(
-                String::from("model_training.onnx"),
-                String::from("index_2_word.json"),
-            )?;
+            let model = CRNNModel::new()?;
             let mut error_count = 0;
             let mut dup_count = 0;
             let mut hash = HashSet::new();

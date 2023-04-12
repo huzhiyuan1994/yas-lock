@@ -123,6 +123,8 @@ impl ArtifactSetKey {
             ArtifactSetKey::GildedDreams => "gilded_dreams",
             ArtifactSetKey::DesertPavilionChronicle => "desert_pavilion_chronicle",
             ArtifactSetKey::FlowerOfParadiseLost => "flower_of_paradise_lost",
+            ArtifactSetKey::NymphsDream => "nymphs_dream",
+            ArtifactSetKey::VourukashasGlow => "vourukashas_glow",
 
             // Not supported by Mingyulab
             ArtifactSetKey::Adventurer => unreachable!(),

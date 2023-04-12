@@ -15,13 +15,13 @@ pub struct CRNNModel {
 }
 
 impl CRNNModel {
-    pub fn new(_name: String, _dict_name: String) -> Result<CRNNModel> {
+    pub fn new() -> Result<CRNNModel> {
         // let model = tract_onnx::onnx()
         //     .model_for_path(String::from("models/") + name.as_str()).unwrap()
         //     .with_input_fact(0, InferenceFact::dt_shape(f32::datum_type(), tvec!(1, 1, 32, 384))).unwrap()
         //     .into_optimized().unwrap()
         //     .into_runnable().unwrap();
-        let bytes = include_bytes!("../../models/model_acc100-epoch45.onnx");
+        let bytes = include_bytes!("../../models/model_acc100-epoch49.onnx");
 
         let model = tract_onnx::onnx()
             .model_for_read(&mut bytes.as_bytes())?

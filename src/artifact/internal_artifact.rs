@@ -81,14 +81,18 @@ pub enum ArtifactSetKey {
     GildedDreams,
     DesertPavilionChronicle,
     FlowerOfParadiseLost,
+    NymphsDream,
+    VourukashasGlow,
 }
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq, Display)]
 pub enum CharacterKey {
     Albedo,
+    Alhaitham,
     Aloy,
     Amber,
     AratakiItto,
+    Baizhu,
     Barbara,
     Beidou,
     Bennett,
@@ -96,6 +100,7 @@ pub enum CharacterKey {
     Chongyun,
     Collei,
     Cyno,
+    Dehya,
     Diluc,
     Diona,
     Dori,
@@ -110,6 +115,7 @@ pub enum CharacterKey {
     Kaeya,
     KamisatoAyaka,
     KamisatoAyato,
+    Kaveh,
     Keqing,
     Klee,
     KujouSara,
@@ -118,6 +124,7 @@ pub enum CharacterKey {
     Lisa,
     Mona,
     Nahida,
+    Mika,
     Nilou,
     Ningguang,
     Noelle,
@@ -141,6 +148,7 @@ pub enum CharacterKey {
     Xinyan,
     YaeMiko,
     Yanfei,
+    Yaoyao,
     Yelan,
     Yoimiya,
     YunJin,
@@ -489,6 +497,16 @@ pub fn get_real_artifact_name_chs(raw: &str) -> Option<String> {
         "月女的华彩",
         "凝结的时刻",
         "守秘的魔瓶",
+        "恶龙的单片镜",
+        "坏巫师的羽杖",
+        "旅途中的鲜花",
+        "水仙的时时刻刻",
+        "勇者们的茶会",
+        "灵光明烁之心",
+        "琦色灵彩之羽",
+        "灵光源起之蕊",
+        "久远花落之时",
+        "无边酣乐之筵",
     ];
 
     let mut min_index = 0;
@@ -712,6 +730,14 @@ impl ArtifactSetKey {
             "紫晶的花冠" | "谢落的筵席" | "月女的华彩" | "凝结的时刻" | "守秘的魔瓶" => {
                 Some(ArtifactSetKey::FlowerOfParadiseLost)
             }
+            "恶龙的单片镜"
+            | "坏巫师的羽杖"
+            | "旅途中的鲜花"
+            | "水仙的时时刻刻"
+            | "勇者们的茶会" => Some(ArtifactSetKey::NymphsDream),
+            "灵光明烁之心" | "琦色灵彩之羽" | "灵光源起之蕊" | "久远花落之时" | "无边酣乐之筵" => {
+                Some(ArtifactSetKey::VourukashasGlow)
+            }
             _ => None,
         }
     }
@@ -925,6 +951,16 @@ impl ArtifactSlotKey {
             "月女的华彩" => Some(ArtifactSlotKey::Flower),
             "凝结的时刻" => Some(ArtifactSlotKey::Sands),
             "守秘的魔瓶" => Some(ArtifactSlotKey::Goblet),
+            "旅途中的鲜花" => Some(ArtifactSlotKey::Flower),
+            "坏巫师的羽杖" => Some(ArtifactSlotKey::Plume),
+            "水仙的时时刻刻" => Some(ArtifactSlotKey::Sands),
+            "勇者们的茶会" => Some(ArtifactSlotKey::Goblet),
+            "恶龙的单片镜" => Some(ArtifactSlotKey::Circlet),
+            "灵光源起之蕊" => Some(ArtifactSlotKey::Flower),
+            "琦色灵彩之羽" => Some(ArtifactSlotKey::Plume),
+            "久远花落之时" => Some(ArtifactSlotKey::Sands),
+            "无边酣乐之筵" => Some(ArtifactSlotKey::Goblet),
+            "灵光明烁之心" => Some(ArtifactSlotKey::Circlet),
             _ => None,
         }
     }
