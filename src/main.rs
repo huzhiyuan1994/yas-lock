@@ -41,12 +41,12 @@ use tungstenite::{accept, Message};
 
 fn get_cli() -> Command {
     Command::new("YAS-lock - 原神圣遗物导出&加解锁")
-        .version("v1.0.9")
+        .version("v1.0.10")
         .author("wormtql <584130248@qq.com>, ideles <pyjy@yahoo.com>")
         .arg(arg!(--"dump" "输出模型预测结果、二值化图像和灰度图像，debug专用"))
         .arg(arg!(--"capture-only" "只保存截图，不进行扫描，debug专用"))
         .arg(arg!(--"mark" "保存标记后的截图，debug专用"))
-        .arg(arg!(--"output-dir" -o <DIR> "输出目录").default_value("."))
+        .arg(arg!(--"output-dir" <DIR> "输出目录").default_value("."))
         .arg(arg!(--"verbose" "显示详细信息"))
         .arg(arg!(--"no-check" "不检测是否已打开背包等"))
         .arg(arg!(--"dxgcap" "使用dxgcap捕获屏幕"))
@@ -334,12 +334,10 @@ fn run_ws(matches: ArgMatches) -> Result<()> {
     Ok(())
 }
 
-fn start() -> Result<()> {
+fn start(matches: ArgMatches) -> Result<()> {
     if !utils::is_admin() {
         return Err(anyhow!("请以管理员身份运行该程序"));
     }
-
-    let matches = get_cli().get_matches();
 
     if matches.get_flag("gui") {
         run_ws(matches)
@@ -349,9 +347,22 @@ fn start() -> Result<()> {
 }
 
 fn main() {
-    Builder::new().filter_level(LevelFilter::Info).init();
+    let matches = get_cli().get_matches();
 
-    start().unwrap_or_else(|e| error!("{:#}", e));
+    Builder::new()
+        .filter_level(LevelFilter::Info)
+        .filter_module(
+            "yas",
+            if matches.get_flag("verbose") {
+                LevelFilter::Trace
+            } else {
+                LevelFilter::Info
+            },
+        )
+        .format_timestamp_millis()
+        .init();
+
+    start(matches).unwrap_or_else(|e| error!("{:#}", e));
 
     info!("按Enter退出");
     let mut s = String::new();

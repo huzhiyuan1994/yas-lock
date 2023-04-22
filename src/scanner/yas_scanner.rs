@@ -12,7 +12,7 @@ use std::time::SystemTime;
 use clap::ArgMatches;
 use dxgcap::DXGIManager;
 use enigo::*;
-use log::{error, info, warn};
+use log::{debug, error, info, trace, warn};
 use serde::{Deserialize, Serialize};
 
 use crate::artifact::internal_artifact::{
@@ -35,7 +35,6 @@ pub struct YasScannerConfig {
     max_wait_switch_artifact: u32,
     scroll_stop: u32,
     number: u32,
-    verbose: bool,
     dump_mode: bool,
     speed: u32,
     no_check: bool,
@@ -60,7 +59,6 @@ impl YasScannerConfig {
             max_wait_switch_artifact: *matches.get_one("max-wait-switch-artifact").unwrap(),
             scroll_stop: *matches.get_one("scroll-stop").unwrap(),
             number: *matches.get_one("number").unwrap(),
-            verbose: matches.get_flag("verbose"),
             speed: *matches.get_one("speed").unwrap(),
             no_check: matches.get_flag("no-check"),
             max_wait_scroll: *matches.get_one("max-wait-scroll").unwrap(),
@@ -319,6 +317,11 @@ impl YasScanner {
         pool += get_pool_of_rect(&shot, &self.info.sub_stat2_position)?;
         pool += get_pool_of_rect(&shot, &self.info.sub_stat3_position)?;
         pool += get_pool_of_rect(&shot, &self.info.sub_stat4_position)?;
+
+        if self.config.mark {
+            shot.save(&format!("dumps/pool_{}.png", pool))?;
+        }
+
         Ok(pool)
     }
 
@@ -507,13 +510,12 @@ impl YasScanner {
         let now = SystemTime::now();
         let mut consecutive_time = 0;
         let mut diff_flag = false;
-        let mut pools = Vec::new();
 
         while now.elapsed()?.as_millis() < self.config.max_wait_switch_artifact as u128 {
             let shot = self.capture_panel()?;
             let pool = self.get_pool(&shot)?;
 
-            pools.push(pool);
+            trace!("pool: {}", pool);
 
             if (pool - self.pool).abs() > 0.000001 {
                 self.pool = pool;
@@ -528,9 +530,6 @@ impl YasScanner {
                         + now.elapsed()?.as_millis() as f64)
                         / (self.scanned_count as f64 + 1.0);
                     self.scanned_count += 1;
-                    if self.config.verbose {
-                        info!("pools: {:?}", pools);
-                    }
                     return Ok(shot);
                 }
             }
@@ -542,9 +541,6 @@ impl YasScanner {
             // pools
         );
 
-        if self.config.verbose {
-            info!("pools: {:?}", pools);
-        }
         self.capture_panel()
     }
 
@@ -558,12 +554,19 @@ impl YasScanner {
 
         while now.elapsed()?.as_millis() < self.config.max_wait_lock as u128 {
             let locks = self.get_locks(start_row, false, false)?;
+            trace!(
+                "should be locked: {}, locked: {}",
+                should_be_locked,
+                locks[index]
+            );
             if locks[index] == should_be_locked {
                 return Ok(());
             }
         }
 
-        warn!("加解锁超时 (time: {} ms)", now.elapsed()?.as_millis(),);
+        // return Err(anyhow!("加解锁超时"));
+
+        warn!("加解锁超时 (time: {} ms)", now.elapsed()?.as_millis());
 
         Ok(())
     }
@@ -803,7 +806,6 @@ impl YasScanner {
         let (tx, rx) = mpsc::channel::<Option<(RawCaptureImage, u32, bool)>>();
         let info_2 = self.info.clone();
         // v bvvmnvbm
-        let is_verbose = self.config.verbose;
         let is_dump_mode = self.config.dump_mode;
         let min_level = self.config.min_level;
         let handle = thread::spawn(move || -> Result<Vec<InternalArtifact>> {
@@ -886,9 +888,7 @@ impl YasScanner {
                     rarity,
                     lock,
                 };
-                if is_verbose {
-                    info!("{:?}", result);
-                }
+                debug!("{:?}", result);
                 // println!("{:?}", result);
                 let art = result.to_internal_artifact();
                 if let Some(a) = art {
@@ -1033,12 +1033,18 @@ impl YasScanner {
             return Err(anyhow!("target out of range"));
         }
 
+        // I don't know why, but it has to sleep awhile before taking the first capture,
+        // otherwise the pool would be slightly different from the true value
+        utils::sleep(1000);
+
         // 如果不给第一个圣遗物加解锁，必须记录它的pool值
         // 以免wait_until_switched出错
-        if actions.len() > 0 && actions[0].target != 0 {
+        if actions[0].target != 0 {
             let shot = self.capture_panel()?;
             self.pool = self.get_pool(&shot)?;
         }
+
+        trace!("initial pool: {}", self.pool);
 
         // loop over pages
         'outer: while end_action < actions.len() {
@@ -1095,18 +1101,24 @@ impl YasScanner {
                     let r = p as u32 / self.col + start_row;
                     let c = p as u32 % self.col;
 
+                    debug!("flip lock of {} at ({}, {})", a.target, r, c);
+
+                    trace!("moving to ({}, {})", r, c);
                     self.move_to(r, c);
+                    trace!("clicking");
                     self.enigo.mouse_click(MouseButton::Left);
+                    trace!("waiting for switch");
                     self.wait_until_switched()?;
 
                     let left: i32 = self.info.left + self.info.lock_x as i32;
                     let top: i32 = self.info.top + self.info.lock_y as i32;
 
+                    trace!("moving to lock");
                     self.enigo.mouse_move_to(left, top);
+                    trace!("clicking");
                     self.enigo.mouse_click(MouseButton::Left);
+                    trace!("waiting for flip");
                     self.wait_until_flipped(start_row, p, !locks[p])?;
-
-                    self.move_to(r, c);
                 }
             }
 
