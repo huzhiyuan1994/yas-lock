@@ -16,7 +16,7 @@ use log::{debug, error, info, trace, warn};
 use serde::{Deserialize, Serialize};
 
 use crate::artifact::internal_artifact::{
-    ArtifactSetKey, ArtifactSlotKey, ArtifactStat, CharacterKey, InternalArtifact,
+    ArtifactSetKey, ArtifactSlotKey, ArtifactStat, InternalArtifact,
 };
 use crate::capture::{self, capture_absolute_raw_image};
 use crate::common::color::Color;
@@ -120,10 +120,9 @@ impl YasScanResult {
 
         let location = if self.location.contains("已装备") {
             let len = self.location.chars().count();
-            let character_name: String = self.location.chars().take(len - 3).collect::<String>();
-            CharacterKey::from_zh_cn(&character_name)
+            self.location.chars().take(len - 3).collect::<String>()
         } else {
-            None
+            String::from("")
         };
 
         let art = InternalArtifact {

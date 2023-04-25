@@ -96,6 +96,13 @@ impl ArtifactSlotKey {
     }
 }
 
+// impl CharacterKey {
+//     pub fn to_mona(&self) -> String {
+//         let temp = match self {};
+//         String::from(temp)
+//     }
+// }
+//
 impl Serialize for ArtifactStat {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -120,7 +127,7 @@ impl Serialize for MonaArtifact {
     where
         S: Serializer,
     {
-        let mut root = serializer.serialize_map(Some(7))?;
+        let mut root = serializer.serialize_map(Some(8))?;
 
         root.serialize_entry("setName", &self.set_key.to_mona())?;
         root.serialize_entry("position", &self.slot_key.to_mona())?;
@@ -151,6 +158,7 @@ impl Serialize for MonaArtifact {
         root.serialize_entry("omit", &false)?;
         root.serialize_entry("level", &self.level)?;
         root.serialize_entry("star", &self.rarity)?;
+        root.serialize_entry("equip", &self.location)?; // TODO: 流浪者
 
         root.end()
     }
