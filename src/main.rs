@@ -41,7 +41,7 @@ use tungstenite::{accept, Message};
 
 fn get_cli() -> Command {
     Command::new("YAS-lock - 原神圣遗物导出&加解锁")
-        .version("v1.0.10")
+        .version("v1.0.11")
         .author("wormtql <584130248@qq.com>, ideles <pyjy@yahoo.com>")
         .arg(arg!(--"dump" "输出模型预测结果、二值化图像和灰度图像，debug专用"))
         .arg(arg!(--"capture-only" "只保存截图，不进行扫描，debug专用"))
@@ -87,6 +87,11 @@ fn get_cli() -> Command {
                 .value_parser(value_parser!(u32)),
         )
         .arg(
+            arg!(--"lock-stop" <TIME> "加解锁停顿时间(ms)")
+                .default_value("100")
+                .value_parser(value_parser!(u32)),
+        )
+        .arg(
             arg!(--"max-wait-switch-artifact" <TIME> "切换圣遗物最大等待时间(ms)")
                 .default_value("800")
                 .value_parser(value_parser!(u32)),
@@ -98,7 +103,7 @@ fn get_cli() -> Command {
         )
         .arg(
             arg!(--"max-wait-lock" <TIME> "加解锁的最大等待时间(ms)（加解锁不正确可以考虑加大该选项）")
-                .default_value("800")
+                .default_value("0")
                 .value_parser(value_parser!(u32)),
         )
         .arg(

@@ -44,6 +44,7 @@ pub struct YasScannerConfig {
     default_stop: u32,
     yun: bool,
     scroll_speed: f64,
+    lock_stop: u32,
     max_wait_lock: u32,
 }
 
@@ -66,6 +67,7 @@ impl YasScannerConfig {
             default_stop: *matches.get_one("default-stop").unwrap(),
             yun: matches.get_one::<String>("window").unwrap().to_string() != String::from("原神"),
             scroll_speed: *matches.get_one("scroll-speed").unwrap(),
+            lock_stop: *matches.get_one("lock-stop").unwrap(),
             max_wait_lock: *matches.get_one("max-wait-lock").unwrap(),
         })
     }
@@ -225,12 +227,12 @@ impl YasScanner {
 }
 
 impl YasScanner {
-    fn align_panel(&mut self) {
-        let left: i32 = self.info.left + self.info.lock_x as i32;
-        let top: i32 = self.info.top + self.info.lock_y as i32;
-        self.enigo.mouse_move_to(left, top);
-        self.scroll(10);
-    }
+    // fn align_panel(&mut self) {
+    //     let left: i32 = self.info.left + self.info.lock_x as i32;
+    //     let top: i32 = self.info.top + self.info.lock_y as i32;
+    //     self.enigo.mouse_move_to(left, top);
+    //     self.scroll(10);
+    // }
 
     fn capture(&mut self, rect: &PixelRect) -> Result<RawCaptureImage> {
         if self.config.dxgcap {
@@ -778,7 +780,7 @@ impl YasScanner {
     }
 
     pub fn scan(&mut self) -> Result<Vec<InternalArtifact>> {
-        self.align_panel();
+        // self.align_panel();
         self.check_menu()?;
         self.scroll_to_top()?;
         self.get_scroll_speed()?;
@@ -1013,7 +1015,7 @@ impl YasScanner {
             return Ok(());
         }
 
-        self.align_panel();
+        // self.align_panel();
         self.check_menu()?;
         self.scroll_to_top()?;
         self.get_scroll_speed()?;
@@ -1053,15 +1055,14 @@ impl YasScanner {
             start_action = end_action;
             start_art = self.col * (scrolled_rows + start_row);
             end_art = min(self.col * (scrolled_rows + self.row), total_arts);
-            let mut should_get_locks = false;
+            let mut should_get_locks = self.config.max_wait_lock > 0;
             let mut locks: Vec<bool> = Vec::new();
 
             // get actions inside current page
             while end_action < actions.len() && actions[end_action].target < end_art {
-                // if actions[end_action].type_ != LockActionType::Flip {
-                //     should_get_locks = true;
-                // }
-                should_get_locks = true;
+                if actions[end_action].type_ != LockActionType::Flip {
+                    should_get_locks = true;
+                }
                 end_action += 1;
             }
 
@@ -1115,8 +1116,12 @@ impl YasScanner {
                     self.enigo.mouse_move_to(left, top);
                     trace!("clicking");
                     self.enigo.mouse_click(MouseButton::Left);
-                    trace!("waiting for flip");
-                    self.wait_until_flipped(start_row, p, !locks[p])?;
+                    trace!("Sleeping for {}ms", self.config.lock_stop);
+                    utils::sleep(self.config.lock_stop);
+                    if self.config.max_wait_lock > 0 {
+                        trace!("waiting for flip");
+                        self.wait_until_flipped(start_row, p, !locks[p])?;
+                    }
                 }
             }
 
