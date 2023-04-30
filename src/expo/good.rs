@@ -4,7 +4,7 @@ use std::convert::From;
 use serde::ser::{Serialize, SerializeMap, Serializer};
 
 use crate::artifact::internal_artifact::{
-    ArtifactSetKey, ArtifactSlotKey, ArtifactStat, ArtifactStatKey, InternalArtifact,
+    ArtifactSetKey, ArtifactSlotKey, ArtifactStat, ArtifactStatKey, CharacterKey, InternalArtifact,
 };
 
 impl ArtifactStatKey {
@@ -53,78 +53,9 @@ impl ArtifactSlotKey {
     }
 }
 
-fn to_char_key(name: &str) -> &str {
-    match name {
-        "神里绫华" => "KamisatoAyaka",
-        "琴" => "Jean",
-        "旅行者" => "Traveler",
-        "丽莎" => "Lisa",
-        "芭芭拉" => "Barbara",
-        "凯亚" => "Kaeya",
-        "迪卢克" => "Diluc",
-        "雷泽" => "Razor",
-        "安柏" => "Amber",
-        "温迪" => "Venti",
-        "香菱" => "Xiangling",
-        "北斗" => "Beidou",
-        "行秋" => "Xingqiu",
-        "魈" => "Xiao",
-        "凝光" => "Ningguang",
-        "可莉" => "Klee",
-        "钟离" => "Zhongli",
-        "菲谢尔" => "Fischl",
-        "班尼特" => "Bennett",
-        "达达利亚" => "Tartaglia",
-        "诺艾尔" => "Noelle",
-        "七七" => "Qiqi",
-        "重云" => "Chongyun",
-        "甘雨" => "Ganyu",
-        "阿贝多" => "Albedo",
-        "迪奥娜" => "Diona",
-        "莫娜" => "Mona",
-        "刻晴" => "Keqing",
-        "砂糖" => "Sucrose",
-        "辛焱" => "Xinyan",
-        "罗莎莉亚" => "Rosaria",
-        "胡桃" => "HuTao",
-        "枫原万叶" => "KaedeharaKazuha",
-        "烟绯" => "Yanfei",
-        "宵宫" => "Yoimiya",
-        "托马" => "Thoma",
-        "优菈" => "Eula",
-        "雷电将军" => "RaidenShogun",
-        "早柚" => "Sayu",
-        "珊瑚宫心海" => "SangonomiyaKokomi",
-        "五郎" => "Gorou",
-        "九条裟罗" => "KujouSara",
-        "荒泷一斗" => "AratakiItto",
-        "八重神子" => "YaeMiko",
-        "鹿野院平藏" => "ShikanoinHeizou",
-        "夜兰" => "Yelan",
-        "绮良良" => "Kirara",
-        "埃洛伊" => "Aloy",
-        "申鹤" => "Shenhe",
-        "云堇" => "YunJin",
-        "久岐忍" => "KukiShinobu",
-        "神里绫人" => "KamisatoAyato",
-        "柯莱" => "Collei",
-        "多莉" => "Dori",
-        "提纳里" => "Tighnari",
-        "妮露" => "Nilou",
-        "赛诺" => "Cyno",
-        "坎蒂丝" => "Candace",
-        "纳西妲" => "Nahida",
-        "莱依拉" => "Layla",
-        "流浪者" => "Wanderer",
-        "珐露珊" => "Faruzan",
-        "瑶瑶" => "Yaoyao",
-        "艾尔海森" => "Alhaitham",
-        "迪希雅" => "Dehya",
-        "米卡" => "Mika",
-        "卡维" => "Kaveh",
-        "白术" => "Baizhu",
-        "" => "",
-        _ => "Wanderer", // 流浪者很忙
+impl CharacterKey {
+    pub fn to_good(&self) -> String {
+        self.to_string()
     }
 }
 
@@ -160,7 +91,11 @@ impl<'a> Serialize for GoodArtifact<'a> {
         root.serialize_entry("level", &self.artifact.level)?;
         root.serialize_entry("rarity", &self.artifact.rarity)?;
         root.serialize_entry("lock", &self.artifact.lock)?;
-        root.serialize_entry("location", &to_char_key(&self.artifact.location))?;
+        let location = match &self.artifact.location {
+            Some(l) => l.to_good(),
+            None => String::from(""),
+        };
+        root.serialize_entry("location", &location)?;
         root.serialize_entry("mainStatKey", &self.artifact.main_stat.key.to_good())?;
         let mut substats: Vec<GoodArtifactStat> = vec![];
         if let Some(ref s) = self.artifact.sub_stat_1 {

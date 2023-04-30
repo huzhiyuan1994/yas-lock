@@ -29,6 +29,9 @@ open = "3.2.0"
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["winuser", "winbase", "wingdi", "winnt", "securitybaseapi", "libloaderapi"] }
 
+[build-dependencies]
+winres = "0.1"
+
 [profile.release]
 lto = true
 panic = "abort"

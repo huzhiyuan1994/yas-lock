@@ -16,7 +16,7 @@ use log::{debug, error, info, trace, warn};
 use serde::{Deserialize, Serialize};
 
 use crate::artifact::internal_artifact::{
-    ArtifactSetKey, ArtifactSlotKey, ArtifactStat, InternalArtifact,
+    ArtifactSetKey, ArtifactSlotKey, ArtifactStat, CharacterKey, InternalArtifact,
 };
 use crate::capture::{self, capture_absolute_raw_image};
 use crate::common::color::Color;
@@ -83,7 +83,6 @@ enum ScrollResult {
 pub struct YasScanResult {
     name: String,
     main_stat_name: String,
-
     main_stat_value: String,
     sub_stat_1: String,
     sub_stat_2: String,
@@ -120,9 +119,9 @@ impl YasScanResult {
 
         let location = if self.location.contains("已装备") {
             let len = self.location.chars().count();
-            self.location.chars().take(len - 3).collect::<String>()
+            CharacterKey::from_zh_cn(&self.location.chars().take(len - 3).collect::<String>())
         } else {
-            String::from("")
+            None
         };
 
         let art = InternalArtifact {

@@ -4,7 +4,7 @@ use std::convert::From;
 use serde::ser::{Serialize, SerializeMap, Serializer};
 
 use crate::artifact::internal_artifact::{
-    ArtifactSetKey, ArtifactSlotKey, ArtifactStat, ArtifactStatKey, InternalArtifact,
+    ArtifactSetKey, ArtifactSlotKey, ArtifactStat, ArtifactStatKey, CharacterKey, InternalArtifact,
 };
 
 type MonaArtifact = InternalArtifact;
@@ -96,13 +96,82 @@ impl ArtifactSlotKey {
     }
 }
 
-// impl CharacterKey {
-//     pub fn to_mona(&self) -> String {
-//         let temp = match self {};
-//         String::from(temp)
-//     }
-// }
-//
+impl CharacterKey {
+    pub fn to_mona(&self) -> String {
+        let temp = match self {
+            CharacterKey::KamisatoAyaka => "神里绫华",
+            CharacterKey::Jean => "琴",
+            CharacterKey::Traveler => "旅行者",
+            CharacterKey::Lisa => "丽莎",
+            CharacterKey::Barbara => "芭芭拉",
+            CharacterKey::Kaeya => "凯亚",
+            CharacterKey::Diluc => "迪卢克",
+            CharacterKey::Razor => "雷泽",
+            CharacterKey::Amber => "安柏",
+            CharacterKey::Venti => "温迪",
+            CharacterKey::Xiangling => "香菱",
+            CharacterKey::Beidou => "北斗",
+            CharacterKey::Xingqiu => "行秋",
+            CharacterKey::Xiao => "魈",
+            CharacterKey::Ningguang => "凝光",
+            CharacterKey::Klee => "可莉",
+            CharacterKey::Zhongli => "钟离",
+            CharacterKey::Fischl => "菲谢尔",
+            CharacterKey::Bennett => "班尼特",
+            CharacterKey::Tartaglia => "达达利亚",
+            CharacterKey::Noelle => "诺艾尔",
+            CharacterKey::Qiqi => "七七",
+            CharacterKey::Chongyun => "重云",
+            CharacterKey::Ganyu => "甘雨",
+            CharacterKey::Albedo => "阿贝多",
+            CharacterKey::Diona => "迪奥娜",
+            CharacterKey::Mona => "莫娜",
+            CharacterKey::Keqing => "刻晴",
+            CharacterKey::Sucrose => "砂糖",
+            CharacterKey::Xinyan => "辛焱",
+            CharacterKey::Rosaria => "罗莎莉亚",
+            CharacterKey::HuTao => "胡桃",
+            CharacterKey::KaedeharaKazuha => "枫原万叶",
+            CharacterKey::Yanfei => "烟绯",
+            CharacterKey::Yoimiya => "宵宫",
+            CharacterKey::Thoma => "托马",
+            CharacterKey::Eula => "优菈",
+            CharacterKey::RaidenShogun => "雷电将军",
+            CharacterKey::Sayu => "早柚",
+            CharacterKey::SangonomiyaKokomi => "珊瑚宫心海",
+            CharacterKey::Gorou => "五郎",
+            CharacterKey::KujouSara => "九条裟罗",
+            CharacterKey::AratakiItto => "荒泷一斗",
+            CharacterKey::YaeMiko => "八重神子",
+            CharacterKey::ShikanoinHeizou => "鹿野院平藏",
+            CharacterKey::Yelan => "夜兰",
+            CharacterKey::Kirara => "绮良良",
+            CharacterKey::Aloy => "埃洛伊",
+            CharacterKey::Shenhe => "申鹤",
+            CharacterKey::YunJin => "云堇",
+            CharacterKey::KukiShinobu => "久岐忍",
+            CharacterKey::KamisatoAyato => "神里绫人",
+            CharacterKey::Collei => "柯莱",
+            CharacterKey::Dori => "多莉",
+            CharacterKey::Tighnari => "提纳里",
+            CharacterKey::Nilou => "妮露",
+            CharacterKey::Cyno => "赛诺",
+            CharacterKey::Candace => "坎蒂丝",
+            CharacterKey::Nahida => "纳西妲",
+            CharacterKey::Layla => "莱依拉",
+            CharacterKey::Wanderer => "流浪者",
+            CharacterKey::Faruzan => "珐露珊",
+            CharacterKey::Yaoyao => "瑶瑶",
+            CharacterKey::Alhaitham => "艾尔海森",
+            CharacterKey::Dehya => "迪希雅",
+            CharacterKey::Mika => "米卡",
+            CharacterKey::Kaveh => "卡维",
+            CharacterKey::Baizhu => "白术",
+        };
+        String::from(temp)
+    }
+}
+
 impl Serialize for ArtifactStat {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -158,7 +227,11 @@ impl Serialize for MonaArtifact {
         root.serialize_entry("omit", &false)?;
         root.serialize_entry("level", &self.level)?;
         root.serialize_entry("star", &self.rarity)?;
-        root.serialize_entry("equip", &self.location)?; // TODO: 流浪者
+        let equip = match &self.location {
+            Some(l) => l.to_mona(),
+            None => String::from(""),
+        };
+        root.serialize_entry("equip", &equip)?; // TODO: 流浪者
 
         root.end()
     }
