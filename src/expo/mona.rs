@@ -167,6 +167,11 @@ impl CharacterKey {
             CharacterKey::Mika => "米卡",
             CharacterKey::Kaveh => "卡维",
             CharacterKey::Baizhu => "白术",
+            CharacterKey::Lynette => "琳妮特",
+            CharacterKey::Lyney => "林尼",
+            CharacterKey::Freminet => "菲米尼",
+            CharacterKey::Wriothesley => "莱欧斯利",
+            CharacterKey::Neuvillette => "那维莱特",
         };
         String::from(temp)
     }

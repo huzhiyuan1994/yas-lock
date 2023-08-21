@@ -125,6 +125,8 @@ impl ArtifactSetKey {
             ArtifactSetKey::FlowerOfParadiseLost => "flower_of_paradise_lost",
             ArtifactSetKey::NymphsDream => "nymphs_dream",
             ArtifactSetKey::VourukashasGlow => "vourukashas_glow",
+            ArtifactSetKey::MarechausseeHunter => "marechaussee_hunter",
+            ArtifactSetKey::GoldenTroupe => "golden_troupe",
 
             // Not supported by Mingyulab
             ArtifactSetKey::Adventurer => unreachable!(),

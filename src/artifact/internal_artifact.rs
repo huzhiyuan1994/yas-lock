@@ -82,6 +82,8 @@ pub enum ArtifactSetKey {
     FlowerOfParadiseLost,
     NymphsDream,
     VourukashasGlow,
+    MarechausseeHunter,
+    GoldenTroupe,
 }
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq, Display)]
@@ -154,6 +156,11 @@ pub enum CharacterKey {
     Mika,
     Kaveh,
     Baizhu,
+    Lynette,
+    Lyney,
+    Freminet,
+    Wriothesley,
+    Neuvillette,
 }
 
 #[derive(Debug, Clone)]
@@ -503,6 +510,14 @@ impl ArtifactSetKey {
             "灵光明烁之心" | "琦色灵彩之羽" | "灵光源起之蕊" | "久远花落之时" | "无边酣乐之筵" => {
                 Some(ArtifactSetKey::VourukashasGlow)
             }
+            "猎人的胸花" | "杰作的序曲" | "裁判的时刻" | "遗忘的容器" | "老兵的容颜" => {
+                Some(ArtifactSetKey::MarechausseeHunter)
+            }
+            "黄金乐曲的变奏"
+            | "黄金飞鸟的落羽"
+            | "黄金时代的先声"
+            | "黄金之夜的喧嚣"
+            | "黄金剧团的奖赏" => Some(ArtifactSetKey::GoldenTroupe),
             _ => None,
         }
     }
@@ -726,6 +741,16 @@ impl ArtifactSlotKey {
             "久远花落之时" => Some(ArtifactSlotKey::Sands),
             "无边酣乐之筵" => Some(ArtifactSlotKey::Goblet),
             "灵光明烁之心" => Some(ArtifactSlotKey::Circlet),
+            "猎人的胸花" => Some(ArtifactSlotKey::Flower),
+            "杰作的序曲" => Some(ArtifactSlotKey::Plume),
+            "裁判的时刻" => Some(ArtifactSlotKey::Sands),
+            "遗忘的容器" => Some(ArtifactSlotKey::Goblet),
+            "老兵的容颜" => Some(ArtifactSlotKey::Circlet),
+            "黄金乐曲的变奏" => Some(ArtifactSlotKey::Flower),
+            "黄金飞鸟的落羽" => Some(ArtifactSlotKey::Plume),
+            "黄金时代的先声" => Some(ArtifactSlotKey::Sands),
+            "黄金之夜的喧嚣" => Some(ArtifactSlotKey::Goblet),
+            "黄金剧团的奖赏" => Some(ArtifactSlotKey::Circlet),
             _ => None,
         }
     }
@@ -802,6 +827,11 @@ impl CharacterKey {
             "米卡" => Some(CharacterKey::Mika),
             "卡维" => Some(CharacterKey::Kaveh),
             "白术" => Some(CharacterKey::Baizhu),
+            "琳妮特" => Some(CharacterKey::Lynette),
+            "林尼" => Some(CharacterKey::Lyney),
+            "菲米尼" => Some(CharacterKey::Freminet),
+            "莱欧斯利" => Some(CharacterKey::Wriothesley),
+            "那维莱特" => Some(CharacterKey::Neuvillette),
             _ => None,
         }
     }
