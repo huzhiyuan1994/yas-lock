@@ -16,7 +16,7 @@ use log::{debug, error, info, trace, warn};
 use serde::{Deserialize, Serialize};
 
 use crate::artifact::internal_artifact::{
-    ArtifactSetKey, ArtifactSlotKey, ArtifactStat, CharacterKey, InternalArtifact,
+    ArtifactSetKey, ArtifactSlotKey, ArtifactStat, ArtifactStatKey, CharacterKey, InternalArtifact,
 };
 use crate::capture::{self, capture_absolute_raw_image};
 use crate::common::color::Color;
@@ -904,6 +904,57 @@ impl YasScanner {
                     results.push(a);
                 } else {
                     error!("wrong detection: {:?}", result);
+                    //使得在有Error下也能输出对应个数，方便lock
+                    if true
+                    {
+                        let set_key = ArtifactSetKey::from_zh_cn(&result.name).unwrap_or(ArtifactSetKey::GladiatorsFinale);//角斗士 花
+                        let slot_key = ArtifactSlotKey::from_zh_cn(&result.name).unwrap_or(ArtifactSlotKey::Flower);
+                        let rarity = result.rarity;
+                        let mut level:u32 = 0;
+                        if !result.level.contains("+") {
+                            level = result
+                            .level
+                            .chars()
+                            .skip(1)
+                            .collect::<String>()
+                            .parse::<u32>()
+                            .ok().unwrap_or(0);
+                        }
+                        let main_stat = ArtifactStat::from_zh_cn_raw(
+                            (result.main_stat_name.replace("+", "?") + "+" + result.main_stat_value.as_str()).as_str(),
+                        ).unwrap_or(
+                            ArtifactStat {
+                                key: ArtifactStatKey::Hp,
+                                value: 4780.0,
+                            }
+                        );
+                        let sub1 = ArtifactStat::from_zh_cn_raw(&result.sub_stat_1);
+                        let sub2 = ArtifactStat::from_zh_cn_raw(&result.sub_stat_2);
+                        let sub3 = ArtifactStat::from_zh_cn_raw(&result.sub_stat_3);
+                        let sub4 = ArtifactStat::from_zh_cn_raw(&result.sub_stat_4);
+
+                        let location = if result.location.contains("已装备") {
+                            let len = result.location.chars().count();
+                            CharacterKey::from_zh_cn(&result.location.chars().take(len - 3).collect::<String>())
+                        } else {
+                            None
+                        };
+
+                        let tart = InternalArtifact {
+                            set_key,
+                            slot_key,
+                            rarity,
+                            level,
+                            location,
+                            lock: result.lock,
+                            main_stat,
+                            sub_stat_1: sub1,
+                            sub_stat_2: sub2,
+                            sub_stat_3: sub3,
+                            sub_stat_4: sub4,
+                        };
+                        results.push(tart);
+                    }
                     error_count += 1;
                     // println!("error parsing results");
                 }
