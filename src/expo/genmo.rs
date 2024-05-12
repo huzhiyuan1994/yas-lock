@@ -129,6 +129,8 @@ impl ArtifactSetKey {
             ArtifactSetKey::GoldenTroupe => "golden_troupe",
             ArtifactSetKey::SongOfDaysPast => "song_of_days_past",
             ArtifactSetKey::NighttimeWhispersInTheEchoingWoods => "nighttime_whispers_in_the_echoing_woods",
+            ArtifactSetKey::FragmentOfHarmonicWhimsy => "fragment_of_harmonic_whimsy",
+            ArtifactSetKey::UnfinishedReverie => "unfinished_reverie",
 
             // Not supported by Mingyulab
             ArtifactSetKey::Adventurer => unreachable!(),

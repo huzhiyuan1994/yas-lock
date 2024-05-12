@@ -86,6 +86,8 @@ pub enum ArtifactSetKey {
     GoldenTroupe,
     SongOfDaysPast,
     NighttimeWhispersInTheEchoingWoods,
+    FragmentOfHarmonicWhimsy,
+    UnfinishedReverie,
 }
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq, Display)]
@@ -166,9 +168,11 @@ pub enum CharacterKey {
     Charlotte,
     Furina,
     Navia,
-    //Chevreuse,
-    //Gaming,
+    Chevreuse,
+    Gaming,
     Xianyun,
+    Chiori,
+    Arlecchino
 }
 
 #[derive(Debug, Clone)]
@@ -490,52 +494,20 @@ impl ArtifactSetKey {
             "离别之贝" => Some(ArtifactSetKey::OceanHuedClam),
             "真珠之笼" => Some(ArtifactSetKey::OceanHuedClam),
             "海祇之冠" => Some(ArtifactSetKey::OceanHuedClam),
-            "生灵之华" | "阳辔之遗" | "潜光片羽" | "结契之刻" | "虺雷之姿" => {
-                Some(ArtifactSetKey::VermillionHereafter)
-            }
-            "魂香之花" | "祝祀之凭" | "垂玉之叶" | "涌泉之盏" | "浮溯之珏" => {
-                Some(ArtifactSetKey::EchoesOfAnOffering)
-            }
-            "迷宫的游人" | "翠蔓的智者" | "贤智的定期" | "迷误者之灯" | "月桂的宝冠" => {
-                Some(ArtifactSetKey::DeepwoodMemories)
-            }
-            "梦中的铁花" | "裁断的翎羽" | "沉金的岁月" | "如蜜的终宴" | "沙王的投影" => {
-                Some(ArtifactSetKey::GildedDreams)
-            }
-            "流沙贵嗣的遗宝"
-            | "黄金邦国的结末"
-            | "众王之都的开端"
-            | "失落迷途的机芯"
-            | "迷醉长梦的守护" => Some(ArtifactSetKey::DesertPavilionChronicle),
-            "紫晶的花冠" | "谢落的筵席" | "月女的华彩" | "凝结的时刻" | "守秘的魔瓶" => {
-                Some(ArtifactSetKey::FlowerOfParadiseLost)
-            }
-            "恶龙的单片镜"
-            | "坏巫师的羽杖"
-            | "旅途中的鲜花"
-            | "水仙的时时刻刻"
-            | "勇者们的茶会" => Some(ArtifactSetKey::NymphsDream),
-            "灵光明烁之心" | "琦色灵彩之羽" | "灵光源起之蕊" | "久远花落之时" | "无边酣乐之筵" => {
-                Some(ArtifactSetKey::VourukashasGlow)
-            }
-            "猎人的胸花" | "杰作的序曲" | "裁判的时刻" | "遗忘的容器" | "老兵的容颜" => {
-                Some(ArtifactSetKey::MarechausseeHunter)
-            }
-            "黄金乐曲的变奏"
-            | "黄金飞鸟的落羽"
-            | "黄金时代的先声"
-            | "黄金之夜的喧嚣"
-            | "黄金剧团的奖赏" => Some(ArtifactSetKey::GoldenTroupe),
-            "昔时传奏之诗·"
-            | "昔时浮想之思"
-            | "昔时遗落之誓"
-            | "昔时回映之音"
-            | "昔时应许之梦" => Some(ArtifactSetKey::SongOfDaysPast),
-            "慈爱的淑女帽"
-            | "诚恳的蘸水笔"
-            | "无私的妆饰花"
-            | "忠实的砂时计"
-            | "慷慨的墨水瓶" => Some(ArtifactSetKey::NighttimeWhispersInTheEchoingWoods),
+            "生灵之华" | "阳辔之遗" | "潜光片羽" | "结契之刻" | "虺雷之姿" => Some(ArtifactSetKey::VermillionHereafter),
+            "魂香之花" | "祝祀之凭" | "垂玉之叶" | "涌泉之盏" | "浮溯之珏" => Some(ArtifactSetKey::EchoesOfAnOffering),
+            "迷宫的游人" | "翠蔓的智者" | "贤智的定期" | "迷误者之灯" | "月桂的宝冠" => Some(ArtifactSetKey::DeepwoodMemories),
+            "梦中的铁花" | "裁断的翎羽" | "沉金的岁月" | "如蜜的终宴" | "沙王的投影" => Some(ArtifactSetKey::GildedDreams),
+            "流沙贵嗣的遗宝" | "黄金邦国的结末" | "众王之都的开端" | "失落迷途的机芯" | "迷醉长梦的守护" => Some(ArtifactSetKey::DesertPavilionChronicle),
+            "紫晶的花冠" | "谢落的筵席" | "月女的华彩" | "凝结的时刻" | "守秘的魔瓶" => Some(ArtifactSetKey::FlowerOfParadiseLost),
+            "恶龙的单片镜" | "坏巫师的羽杖" | "旅途中的鲜花" | "水仙的时时刻刻" | "勇者们的茶会" => Some(ArtifactSetKey::NymphsDream),
+            "灵光明烁之心" | "琦色灵彩之羽" | "灵光源起之蕊" | "久远花落之时" | "无边酣乐之筵" => Some(ArtifactSetKey::VourukashasGlow),
+            "猎人的胸花" | "杰作的序曲" | "裁判的时刻" | "遗忘的容器" | "老兵的容颜" => Some(ArtifactSetKey::MarechausseeHunter),
+            "黄金乐曲的变奏" | "黄金飞鸟的落羽" | "黄金时代的先声" | "黄金之夜的喧嚣" | "黄金剧团的奖赏" => Some(ArtifactSetKey::GoldenTroupe),
+            "昔时传奏之诗" | "昔时浮想之思" | "昔时遗落之誓" | "昔时回映之音" | "昔时应许之梦" => Some(ArtifactSetKey::SongOfDaysPast),
+            "慈爱的淑女帽" | "诚恳的蘸水笔" | "无私的妆饰花" | "忠实的砂时计"  | "慷慨的墨水瓶" => Some(ArtifactSetKey::NighttimeWhispersInTheEchoingWoods),
+            "异想零落的圆舞" | "古海玄幽的夜想" | "谐律交响的前奏" | "命途轮转的谐谑" | "灵露倾洒的狂诗" => Some(ArtifactSetKey::FragmentOfHarmonicWhimsy),
+            "失冕的宝冠" | "褪光的翠尾" | "暗结的明花" | "举业的识刻" | "筹谋的共樽" => Some(ArtifactSetKey::UnfinishedReverie),
             _ => None,
         }
     }
@@ -779,6 +751,16 @@ impl ArtifactSlotKey {
             "无私的妆饰花" => Some(ArtifactSlotKey::Flower),
             "忠实的砂时计" => Some(ArtifactSlotKey::Sands),
             "慷慨的墨水瓶" => Some(ArtifactSlotKey::Goblet),
+            "异想零落的圆舞" => Some(ArtifactSlotKey::Circlet),//Head
+            "古海玄幽的夜想" => Some(ArtifactSlotKey::Plume),//Feather
+            "谐律交响的前奏" => Some(ArtifactSlotKey::Flower),
+            "命途轮转的谐谑" => Some(ArtifactSlotKey::Sands),//Sand
+            "灵露倾洒的狂诗" => Some(ArtifactSlotKey::Goblet),
+            "失冕的宝冠" => Some(ArtifactSlotKey::Circlet),
+            "褪光的翠尾" => Some(ArtifactSlotKey::Plume),
+            "暗结的明花" => Some(ArtifactSlotKey::Flower),
+            "举业的识刻" => Some(ArtifactSlotKey::Sands),
+            "筹谋的共樽" => Some(ArtifactSlotKey::Goblet),
             _ => None,
         }
     }
@@ -863,9 +845,11 @@ impl CharacterKey {
             "夏洛蒂" => Some(CharacterKey::Charlotte),
             "芙宁娜" => Some(CharacterKey::Furina),
             "娜维娅" => Some(CharacterKey::Navia),
-            //"夏沃蕾" => Some(CharacterKey::Chevreuse),
-            //"嘉明" => Some(CharacterKey::Gaming),
+            "夏沃蕾" => Some(CharacterKey::Chevreuse),
+            "嘉明" => Some(CharacterKey::Gaming),
             "闲云" => Some(CharacterKey::Xianyun),
+            "千织" => Some(CharacterKey::Chiori),
+            "阿蕾奇诺" => Some(CharacterKey::Arlecchino),
             _ => None,
         }
     }
